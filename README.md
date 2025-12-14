@@ -1,3 +1,8 @@
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="art/banner-dark.png">
+    <img alt="Logo for essentials" src="art/banner-light.png">
+  </picture>
+
 # MCP Tools for Laravel
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/abr4xas/mcp-tools.svg?style=flat-square)](https://packagist.org/packages/abr4xas/mcp-tools)
