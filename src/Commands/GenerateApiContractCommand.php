@@ -110,7 +110,7 @@ class GenerateApiContractCommand extends Command
     {
         preg_match_all('/\{(\w+)\??\}/', $uri, $matches);
 
-        return $matches[1] ?? [];
+        return $matches[1];
     }
 
     private function determineAuth($route): array
@@ -405,7 +405,7 @@ class GenerateApiContractCommand extends Command
             // or "new SomeResource"
             // Let's grab all "use App\Http\Resources\..." statements
             preg_match_all('/use (App\\\Http\\\Resources\\\.*);/', $content, $matches);
-            if (isset($matches[1]) && $matches[1] !== []) {
+            if ($matches[1] !== []) {
                 // If there's a Collection, prefer it for Index logic? Or just try all.
                 // Logic: if class name contains Index, prioritize Collection
                 // if class name contains Show, prioritize Resource
@@ -420,7 +420,7 @@ class GenerateApiContractCommand extends Command
                 }
 
                 // Fallback to first one
-                $result = $matches[1][0] ?? null;
+                $result = $matches[1][0];
                 $cache[$responseClass] = $result;
 
                 return $result;
@@ -757,7 +757,7 @@ class GenerateApiContractCommand extends Command
         // Check route action for hints about required headers
         $action = $route->getAction('uses');
         // Webhook endpoints typically need signature headers
-        if (is_string($action) && Str::contains($action, 'Webhook') && $headers === []) {
+        if (is_string($action) && Str::contains($action, 'Webhook')) {
             $headers[] = [
                 'name' => 'X-Signature',
                 'required' => true,
