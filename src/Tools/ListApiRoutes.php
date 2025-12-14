@@ -60,7 +60,7 @@ class ListApiRoutes extends Tool
         }
 
         // Sort by path
-        usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+        usort($routes, fn (array $a, array $b): int => strcmp($a['path'], $b['path']));
 
         // Apply limit
         $routes = array_slice($routes, 0, $limit);

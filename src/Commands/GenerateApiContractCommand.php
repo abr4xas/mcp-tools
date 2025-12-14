@@ -2,7 +2,6 @@
 
 namespace Abr4xas\McpTools\Commands;
 
-
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
@@ -49,7 +48,7 @@ class GenerateApiContractCommand extends Command
                 continue;
             }
 
-            $normalizedUri = '/' . mb_ltrim($uri, '/');
+            $normalizedUri = '/'.mb_ltrim($uri, '/');
             $methods = $route->methods();
             $action = $route->getAction('uses');
 
@@ -151,7 +150,7 @@ class GenerateApiContractCommand extends Command
                     $class = $type->getName();
                     if (class_exists($class) && is_subclass_of($class, FormRequest::class)) {
                         try {
-                            $formRequest = new $class();
+                            $formRequest = new $class;
                             if (method_exists($formRequest, 'rules')) {
                                 $rules = $formRequest->rules();
                                 $parsed = $this->parseValidationRules($rules);
@@ -209,7 +208,7 @@ class GenerateApiContractCommand extends Command
             if (Str::contains($field, '.')) {
                 $parts = explode('.', (string) $field);
                 $root = array_shift($parts);
-                $transformedField = $root . '[' . implode('][', $parts) . ']';
+                $transformedField = $root.'['.implode('][', $parts).']';
             } else {
                 $transformedField = (string) $field;
             }
@@ -252,7 +251,7 @@ class GenerateApiContractCommand extends Command
                 } elseif (Str::startsWith($part, 'max:')) {
                     $constraints[] = $part;
                 } elseif (Str::startsWith($part, 'in:')) {
-                    $constraints[] = 'enum: ' . mb_substr($part, 3);
+                    $constraints[] = 'enum: '.mb_substr($part, 3);
                 } elseif (Str::startsWith($part, 'regex:')) {
                     $constraints[] = $part;
                 } elseif (Str::startsWith($part, 'exists:')) {
@@ -345,8 +344,8 @@ class GenerateApiContractCommand extends Command
             "App\\Http\\Resources\\{$resourceName}Resource",
             "App\\Http\\Resources\\{$resourceName}OverviewResource",
             "App\\Http\\Resources\\{$resourceName}Collection",
-            'App\\Http\\Resources\\' . ucfirst($resourceName) . 'Resource',
-            'App\\Http\\Resources\\Posts\\' . ucfirst($resourceName) . 'Resource', // Heuristic folder
+            'App\\Http\\Resources\\'.ucfirst($resourceName).'Resource',
+            'App\\Http\\Resources\\Posts\\'.ucfirst($resourceName).'Resource', // Heuristic folder
         ];
 
         // Use pre-loaded matching
@@ -441,10 +440,10 @@ class GenerateApiContractCommand extends Command
         $relative = mb_trim(str_replace($base, '', $path), DIRECTORY_SEPARATOR);
         $namespace = 'App\\Http\\Resources';
         if ($relative !== '' && $relative !== '0') {
-            $namespace .= '\\' . str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
+            $namespace .= '\\'.str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
         }
 
-        return $namespace . '\\' . $fileItem->getFilenameWithoutExtension();
+        return $namespace.'\\'.$fileItem->getFilenameWithoutExtension();
     }
 
     private function simulateResourceOutput(string $resourceClass): array
@@ -671,13 +670,13 @@ class GenerateApiContractCommand extends Command
             // Look for use statements - match the full line
             // Pattern: use App\Http\Resources\CardResource;
             // Pattern: use App\Http\Resources\Cards\CardResource;
-            if (preg_match('/use\s+([^;]+' . preg_quote($shortName, '/') . ')\s*;/', $content, $matches)) {
+            if (preg_match('/use\s+([^;]+'.preg_quote($shortName, '/').')\s*;/', $content, $matches)) {
                 return mb_trim($matches[1]);
             }
 
             // Look for use statements with as alias
             // Pattern: use App\Http\Resources\Cards\CardResource as CardResource;
-            if (preg_match('/use\s+([^;]+)\s+as\s+' . preg_quote($shortName, '/') . '\s*;/', $content, $matches)) {
+            if (preg_match('/use\s+([^;]+)\s+as\s+'.preg_quote($shortName, '/').'\s*;/', $content, $matches)) {
                 return mb_trim($matches[1]);
             }
 
@@ -747,12 +746,12 @@ class GenerateApiContractCommand extends Command
 
     /**
      * Extract custom headers required for the route based on middleware
+     *
      * @todo: find a way to extract custom headers from middleware
      */
     private function extractCustomHeaders($route): array
     {
         $headers = [];
-
 
         // Check route action for hints about required headers
         $action = $route->getAction('uses');
