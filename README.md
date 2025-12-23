@@ -37,7 +37,7 @@ Install the package via composer:
 composer require abr4xas/mcp-tools
 ```
 
-The package will automatically register its service provider and MCP tools.
+The package will automatically register its service provider. However, the MCP tools must be manually registered in your project's MCP server configuration.
 
 ## Usage
 
@@ -59,7 +59,7 @@ This command will:
 
 ### Available MCP Tools
 
-Once installed, the package provides these MCP tools that will be automatically discovered by your Laravel MCP server:
+Once installed, the package provides these MCP tools. You must register them manually in your Laravel MCP server configuration:
 
 #### 1. `list-api-routes`
 
@@ -108,6 +108,40 @@ Get detailed information about a specific endpoint.
 -   Authentication requirements
 -   Path parameters with types
 -   Request/response schemas (if available)
+
+### Registering MCP Tools
+
+The MCP tools provided by this package must be manually registered in your Laravel MCP server configuration. Here's how to register them:
+
+1. **Locate your MCP server configuration file** (typically `config/mcp.php` or in your MCP server setup)
+
+2. **Register the tools** by adding them to your MCP server's tool registry:
+
+```php
+use Abr4xas\McpTools\Tools\ListApiRoutes;
+use Abr4xas\McpTools\Tools\DescribeApiRoute;
+
+// In your MCP server configuration or service provider
+$server->registerTool(ListApiRoutes::class);
+$server->registerTool(DescribeApiRoute::class);
+```
+
+Or if you're using a configuration array:
+
+```php
+// config/mcp.php
+return [
+    'tools' => [
+        \Abr4xas\McpTools\Tools\ListApiRoutes::class,
+        \Abr4xas\McpTools\Tools\DescribeApiRoute::class,
+        // ... your other tools
+    ],
+];
+```
+
+3. **Verify registration** by checking your MCP server's available tools list.
+
+> **Note**: The service provider is automatically registered by Laravel, but the MCP tools themselves require manual registration in your MCP server configuration.
 
 ## API Contract Structure
 
