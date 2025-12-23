@@ -20,7 +20,7 @@ use Throwable;
 
 class GenerateApiContractCommand extends Command
 {
-    protected $signature = 'api:contract:generate';
+    protected $signature = 'api:generate-contract';
 
     protected $description = 'Generate a public-facing API contract for MCP consumption';
 

@@ -35,7 +35,7 @@ class DescribeApiRoute extends Tool
 
         $contract = $this->loadContract();
         if ($contract === null) {
-            return Response::text("Error: Contract not found. Run 'php artisan api:contract:generate'.");
+            return Response::text("Error: Contract not found. Run 'php artisan api:generate-contract'.");
         }
 
         $routeData = $this->findRouteData($contract, $normalizedPath, $method);
