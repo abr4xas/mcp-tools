@@ -141,6 +141,36 @@ return [
 
 3. **Verify registration** by checking your MCP server's available tools list.
 
+#### Troubleshooting
+
+If you encounter issues registering the tools:
+
+- **Tools not appearing**: Ensure the MCP server configuration file is being loaded correctly
+- **Class not found errors**: Run `composer dump-autoload` to refresh the autoloader
+- **Service provider not registered**: Check that `Abr4xas\McpTools\McpToolsServiceProvider` is in your `config/app.php` providers array (should be auto-discovered)
+
+#### Complete Example
+
+Here's a complete example of a typical MCP server configuration:
+
+```php
+<?php
+// config/mcp.php
+
+use Abr4xas\McpTools\Tools\ListApiRoutes;
+use Abr4xas\McpTools\Tools\DescribeApiRoute;
+
+return [
+    'tools' => [
+        ListApiRoutes::class,
+        DescribeApiRoute::class,
+        // ... your other MCP tools
+    ],
+    
+    // Other MCP server configuration...
+];
+```
+
 > **Note**: The service provider is automatically registered by Laravel, but the MCP tools themselves require manual registration in your MCP server configuration.
 
 ## API Contract Structure
