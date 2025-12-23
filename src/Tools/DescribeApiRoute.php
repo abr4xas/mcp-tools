@@ -102,7 +102,7 @@ class DescribeApiRoute extends Tool
      * First attempts an exact path match, then tries pattern matching for
      * dynamic routes with parameters.
      *
-     * @param array<string, array> $contract The loaded contract
+     * @param array<string, array<string, array<string, mixed>>> $contract The loaded contract
      * @param string $path The route path to find
      * @param string $method The HTTP method
      * @return array<string, mixed>|null Route data or null if not found

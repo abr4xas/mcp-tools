@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\File;
  */
 class ContractLoader
 {
-    /** @var array<string, array<string, array>> Static cache of loaded contracts */
+    /** @var array<string, array<string, array<string, mixed>>> Static cache of loaded contracts */
     protected static array $contractCache = [];
 
     /**

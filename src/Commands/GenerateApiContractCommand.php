@@ -41,7 +41,7 @@ class GenerateApiContractCommand extends Command
     /** @var array<string, ReflectionMethod> Cache of reflection methods */
     protected array $reflectionCache = [];
 
-    /** @var array<string, array> Cache of resource schemas */
+    /** @var array<string, array<string, mixed>> Cache of resource schemas */
     protected array $resourceSchemaCache = [];
 
     /** @var int Count of warnings during generation */
@@ -152,6 +152,12 @@ class GenerateApiContractCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Extract path parameters from route URI.
+     *
+     * @param string $uri The route URI
+     * @return array<int, string> Array of parameter names
+     */
     private function extractPathParams(string $uri): array
     {
         preg_match_all('/\{(\w+)\??\}/', $uri, $matches);
@@ -159,6 +165,12 @@ class GenerateApiContractCommand extends Command
         return $matches[1];
     }
 
+    /**
+     * Determine authentication type from route middleware.
+     *
+     * @param \Illuminate\Routing\Route $route The Laravel route
+     * @return array{type: string} Auth configuration
+     */
     private function determineAuth($route): array
     {
         $middlewares = $route->gatherMiddleware();
@@ -180,6 +192,13 @@ class GenerateApiContractCommand extends Command
         return $auth;
     }
 
+    /**
+     * Extract request schema from FormRequest or method parameters.
+     *
+     * @param string|object|null $action The route action
+     * @param bool $isQuery Whether this is a query parameter request
+     * @return array<string, mixed> Request schema
+     */
     private function extractRequestSchema($action, bool $isQuery): array
     {
         if (! is_string($action) || ! Str::contains($action, '@')) {
@@ -326,6 +345,13 @@ class GenerateApiContractCommand extends Command
         return $schema;
     }
 
+    /**
+     * Extract response schema from Resource classes or method return types.
+     *
+     * @param string|object|null $action The route action
+     * @param string $uri The route URI
+     * @return array<string, mixed> Response schema
+     */
     private function extractResponseSchema($action, string $uri): array
     {
         if (is_string($action) && Str::contains($action, '@')) {
