@@ -3,9 +3,9 @@
 namespace Abr4xas\McpTools\Commands;
 
 
-use Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
-use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
-use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
+use Abr4xas\McpTools\Contracts\FormRequestAnalyzerInterface;
+use Abr4xas\McpTools\Contracts\ResourceAnalyzerInterface;
+use Abr4xas\McpTools\Contracts\RouteAnalyzerInterface;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
@@ -29,11 +29,11 @@ class GenerateApiContractCommand extends Command
 
     protected $description = 'Generate a public-facing API contract for MCP consumption';
 
-    protected RouteAnalyzer $routeAnalyzer;
+    protected RouteAnalyzerInterface $routeAnalyzer;
 
-    protected FormRequestAnalyzer $formRequestAnalyzer;
+    protected FormRequestAnalyzerInterface $formRequestAnalyzer;
 
-    protected ResourceAnalyzer $resourceAnalyzer;
+    protected ResourceAnalyzerInterface $resourceAnalyzer;
 
     /** @var int Count of warnings during generation */
     protected int $warningCount = 0;
@@ -43,13 +43,20 @@ class GenerateApiContractCommand extends Command
 
     /**
      * Create a new command instance.
+     *
+     * @param RouteAnalyzerInterface|null $routeAnalyzer Optional route analyzer
+     * @param FormRequestAnalyzerInterface|null $formRequestAnalyzer Optional form request analyzer
+     * @param ResourceAnalyzerInterface|null $resourceAnalyzer Optional resource analyzer
      */
-    public function __construct()
-    {
+    public function __construct(
+        ?RouteAnalyzerInterface $routeAnalyzer = null,
+        ?FormRequestAnalyzerInterface $formRequestAnalyzer = null,
+        ?ResourceAnalyzerInterface $resourceAnalyzer = null
+    ) {
         parent::__construct();
-        $this->routeAnalyzer = new RouteAnalyzer();
-        $this->formRequestAnalyzer = new FormRequestAnalyzer();
-        $this->resourceAnalyzer = new ResourceAnalyzer();
+        $this->routeAnalyzer = $routeAnalyzer ?? new \Abr4xas\McpTools\Analyzers\RouteAnalyzer();
+        $this->formRequestAnalyzer = $formRequestAnalyzer ?? new \Abr4xas\McpTools\Analyzers\FormRequestAnalyzer();
+        $this->resourceAnalyzer = $resourceAnalyzer ?? new \Abr4xas\McpTools\Analyzers\ResourceAnalyzer();
     }
 
     /**

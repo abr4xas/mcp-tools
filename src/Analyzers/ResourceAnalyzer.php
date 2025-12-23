@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Analyzers;
 
+use Abr4xas\McpTools\Contracts\ResourceAnalyzerInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -31,7 +32,7 @@ use Throwable;
  *
  * @package Abr4xas\McpTools\Analyzers
  */
-class ResourceAnalyzer
+class ResourceAnalyzer implements ResourceAnalyzerInterface
 {
     /** @var array<string, string> Map of resource names to full class names */
     protected array $availableResources = [];

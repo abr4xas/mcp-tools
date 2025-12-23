@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Services;
 
+use Abr4xas\McpTools\Contracts\ContractLoaderInterface;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\File;
  *
  * @package Abr4xas\McpTools\Services
  */
-class ContractLoader
+class ContractLoader implements ContractLoaderInterface
 {
     /** @var array<string, array<string, array<string, mixed>>> Static cache of loaded contracts */
     protected static array $contractCache = [];

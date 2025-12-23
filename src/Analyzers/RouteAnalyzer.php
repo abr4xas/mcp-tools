@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Analyzers;
 
+use Abr4xas\McpTools\Contracts\RouteAnalyzerInterface;
 use Illuminate\Support\Str;
 
 /**
@@ -14,7 +15,7 @@ use Illuminate\Support\Str;
  *
  * @package Abr4xas\McpTools\Analyzers
  */
-class RouteAnalyzer
+class RouteAnalyzer implements RouteAnalyzerInterface
 {
     /**
      * Extract path parameters from route URI.

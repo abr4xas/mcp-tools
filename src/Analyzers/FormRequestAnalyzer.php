@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Analyzers;
 
+use Abr4xas\McpTools\Contracts\FormRequestAnalyzerInterface;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -19,7 +20,7 @@ use Throwable;
  *
  * @package Abr4xas\McpTools\Analyzers
  */
-class FormRequestAnalyzer
+class FormRequestAnalyzer implements FormRequestAnalyzerInterface
 {
     /** @var array<string, ReflectionMethod> Cache of reflection methods */
     protected array $reflectionCache = [];

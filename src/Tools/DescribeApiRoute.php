@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Tools;
 
+use Abr4xas\McpTools\Contracts\ContractLoaderInterface;
 use Abr4xas\McpTools\Services\ContractLoader;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\File;
@@ -23,14 +24,14 @@ class DescribeApiRoute extends Tool
 {
     protected string $description = 'Get the public API contract for a specific route and method.';
 
-    protected ContractLoader $contractLoader;
+    protected ContractLoaderInterface $contractLoader;
 
     /**
      * Create a new DescribeApiRoute instance.
      *
-     * @param ContractLoader|null $contractLoader Optional contract loader instance
+     * @param ContractLoaderInterface|null $contractLoader Optional contract loader instance
      */
-    public function __construct(?ContractLoader $contractLoader = null)
+    public function __construct(?ContractLoaderInterface $contractLoader = null)
     {
         $this->contractLoader = $contractLoader ?? new ContractLoader();
     }
