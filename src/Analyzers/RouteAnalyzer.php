@@ -74,10 +74,10 @@ class RouteAnalyzer
                 $rateLimitDescriptions = [
                     'api' => '60 requests per minute',
                     'webhook' => '5000 requests per minute',
-                    'login' => '5 requests per minute (100 with x-wb-postman header)',
-                    'signup' => '5 requests per minute (100 with x-wb-postman header)',
-                    'sessions' => '5 requests per minute (100 with x-wb-postman header)',
-                    'phone-number' => '3 requests per minute (100 with x-wb-postman header)',
+                    'login' => '5 requests per minute',
+                    'signup' => '5 requests per minute',
+                    'sessions' => '5 requests per minute',
+                    'phone-number' => '3 requests per minute',
                 ];
 
                 return [
