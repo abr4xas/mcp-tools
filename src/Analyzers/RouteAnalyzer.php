@@ -137,4 +137,3 @@ class RouteAnalyzer
         return $headers;
     }
 }
-

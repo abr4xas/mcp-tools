@@ -11,6 +11,13 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use PhpParser\Node;
+use PhpParser\Node\Expr\MethodCall;
+use PhpParser\Node\Expr\StaticCall;
+use PhpParser\Node\Expr\New_;
+use PhpParser\Node\Name;
+use PhpParser\NodeFinder;
+use PhpParser\ParserFactory;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
@@ -291,7 +298,7 @@ class ResourceAnalyzer
     }
 
     /**
-     * Extract Resource class name from method body by analyzing source code.
+     * Extract Resource class name from method body using AST analysis.
      *
      * @param ReflectionMethod $reflection The method reflection
      * @param callable(string, string): void $onError Error handler callback
@@ -310,85 +317,197 @@ class ResourceAnalyzer
                 return null;
             }
 
-            $startLine = $reflection->getStartLine();
-            $endLine = $reflection->getEndLine();
+            // Parse the entire file to get AST
+            $parser = (new ParserFactory)->create(ParserFactory::PREFER_PHP7);
+            $ast = $parser->parse($content);
 
-            if ($startLine === false || $endLine === false) {
+            if ($ast === null) {
                 return null;
             }
 
-            $lines = explode("\n", $content);
-            $methodBody = implode("\n", array_slice($lines, $startLine - 1, $endLine - $startLine + 1));
+            // Find the method node in the AST
+            $nodeFinder = new NodeFinder;
+            $methodNode = $this->findMethodNode($ast, $reflection->getName(), $nodeFinder);
 
-            // Pattern 1: Resource::make() or Resource::collection()
-            if (preg_match('/(\w+Resource)::(make|collection)\(/', $methodBody, $matches)) {
-                $resourceName = $matches[1];
-                $fullClass = $this->findFullClassName($reflection, $resourceName);
-                if ($fullClass && class_exists($fullClass)) {
-                    return $fullClass;
-                }
-                // Try common namespaces
-                $commonPaths = [
-                    "{$this->resourcesNamespace}\\{$resourceName}",
-                    "{$this->resourcesNamespace}\\Cards\\{$resourceName}",
-                    "{$this->resourcesNamespace}\\Users\\{$resourceName}",
-                    "{$this->resourcesNamespace}\\Companies\\{$resourceName}",
-                    "{$this->resourcesNamespace}\\ServiceCompanies\\{$resourceName}",
-                    "{$this->resourcesNamespace}\\Invest\\{$resourceName}",
-                ];
-                foreach ($commonPaths as $path) {
-                    if (class_exists($path)) {
-                        return $path;
+            if ($methodNode === null) {
+                return null;
+            }
+
+            // Search for Resource usage patterns in the method body
+            $resourceClass = $this->findResourceInMethodNode($methodNode, $nodeFinder, $reflection);
+
+            return $resourceClass;
+        } catch (Throwable $e) {
+            $onError("Could not extract resource from method body", "Unable to analyze method body for resource extraction using AST. Error: {$e->getMessage()}");
+        }
+
+        return null;
+    }
+
+    /**
+     * Find the method node in the AST.
+     *
+     * @param array<Node> $ast The AST nodes
+     * @param string $methodName The method name to find
+     * @param NodeFinder $nodeFinder The node finder instance
+     * @return Node\Stmt\ClassMethod|null The method node or null
+     */
+    protected function findMethodNode(array $ast, string $methodName, NodeFinder $nodeFinder): ?Node\Stmt\ClassMethod
+    {
+        $methods = $nodeFinder->findInstanceOf($ast, Node\Stmt\ClassMethod::class);
+
+        foreach ($methods as $method) {
+            if ($method instanceof Node\Stmt\ClassMethod && $method->name->toString() === $methodName) {
+                return $method;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find Resource class usage in method node.
+     *
+     * @param Node\Stmt\ClassMethod $methodNode The method node
+     * @param NodeFinder $nodeFinder The node finder instance
+     * @param ReflectionMethod $reflection The method reflection
+     * @return string|null Resource class name or null
+     */
+    protected function findResourceInMethodNode(Node\Stmt\ClassMethod $methodNode, NodeFinder $nodeFinder, ReflectionMethod $reflection): ?string
+    {
+        if ($methodNode->stmts === null) {
+            return null;
+        }
+
+        // Find all static method calls (Resource::make(), Resource::collection())
+        $staticCalls = $nodeFinder->findInstanceOf($methodNode->stmts, StaticCall::class);
+        foreach ($staticCalls as $call) {
+            if ($call instanceof StaticCall && $call->class instanceof Name) {
+                $className = $call->class->toString();
+                if (Str::endsWith($className, 'Resource') && in_array($call->name->toString(), ['make', 'collection'], true)) {
+                    $fullClass = $this->resolveClassName($className, $reflection);
+                    if ($fullClass && class_exists($fullClass)) {
+                        return $fullClass;
                     }
                 }
             }
+        }
 
-            // Pattern 2: new Resource(...)
-            if (preg_match('/new (\w+Resource)\(/', $methodBody, $matches)) {
-                $resourceName = $matches[1];
-                $fullClass = $this->findFullClassName($reflection, $resourceName);
-                if ($fullClass && class_exists($fullClass)) {
-                    return $fullClass;
+        // Find all new instances (new Resource(...))
+        $newInstances = $nodeFinder->findInstanceOf($methodNode->stmts, New_::class);
+        foreach ($newInstances as $newInstance) {
+            if ($newInstance instanceof New_ && $newInstance->class instanceof Name) {
+                $className = $newInstance->class->toString();
+                if (Str::endsWith($className, 'Resource')) {
+                    $fullClass = $this->resolveClassName($className, $reflection);
+                    if ($fullClass && class_exists($fullClass)) {
+                        return $fullClass;
+                    }
                 }
             }
+        }
 
-            // Pattern 3: ApiResponse::data()
-            if (preg_match('/ApiResponse::data\([^)]*(\w+Resource)::(make|collection)/', $methodBody, $matches)) {
-                $resourceName = $matches[1];
-                $fullClass = $this->findFullClassName($reflection, $resourceName);
-                if ($fullClass && class_exists($fullClass)) {
-                    return $fullClass;
+        // Find method calls that might contain Resources (ApiResponse::data(), response()->json(), etc.)
+        $methodCalls = $nodeFinder->findInstanceOf($methodNode->stmts, MethodCall::class);
+        foreach ($methodCalls as $methodCall) {
+            if ($methodCall instanceof MethodCall) {
+                // Check for toResourceCollection calls
+                if ($methodCall->name->toString() === 'toResourceCollection') {
+                    // Try to find Resource::class in arguments
+                    $resourceClass = $this->findResourceInArguments($methodCall->args ?? [], $reflection);
+                    if ($resourceClass) {
+                        return $resourceClass;
+                    }
                 }
             }
+        }
 
-            // Pattern 4: toResourceCollection
-            if (preg_match('/->toResourceCollection\((\w+Resource)::class\)/', $methodBody, $matches)) {
-                $resourceName = $matches[1];
-                $fullClass = $this->findFullClassName($reflection, $resourceName);
-                if ($fullClass && class_exists($fullClass)) {
-                    return $fullClass;
+        // Also check static calls for ApiResponse::data(), Response::json(), etc.
+        foreach ($staticCalls as $call) {
+            if ($call instanceof StaticCall && $call->class instanceof Name) {
+                $className = $call->class->toString();
+                if (in_array($className, ['ApiResponse', 'Response', 'Illuminate\\Http\\JsonResponse'], true)) {
+                    // Look for Resource usage in arguments
+                    $resourceClass = $this->findResourceInArguments($call->args ?? [], $reflection);
+                    if ($resourceClass) {
+                        return $resourceClass;
+                    }
                 }
             }
+        }
 
-            // Pattern 5: response()->json()
-            if (preg_match('/response\(\)->json\([^)]*(\w+Resource)::(make|collection)/', $methodBody, $matches)) {
-                $resourceName = $matches[1];
-                $fullClass = $this->findFullClassName($reflection, $resourceName);
-                if ($fullClass && class_exists($fullClass)) {
-                    return $fullClass;
+        return null;
+    }
+
+    /**
+     * Find Resource class in method/function arguments.
+     *
+     * @param array<Node\Arg> $args The arguments
+     * @param ReflectionMethod $reflection The method reflection
+     * @return string|null Resource class name or null
+     */
+    protected function findResourceInArguments(array $args, ReflectionMethod $reflection): ?string
+    {
+        foreach ($args as $arg) {
+            if ($arg instanceof Node\Arg) {
+                $value = $arg->value;
+
+                // Check for StaticCall in arguments (Resource::make(), Resource::collection())
+                if ($value instanceof StaticCall && $value->class instanceof Name) {
+                    $className = $value->class->toString();
+                    if (Str::endsWith($className, 'Resource')) {
+                        $fullClass = $this->resolveClassName($className, $reflection);
+                        if ($fullClass && class_exists($fullClass)) {
+                            return $fullClass;
+                        }
+                    }
+                }
+
+                // Check for ClassConstFetch (Resource::class)
+                if ($value instanceof Node\Expr\ClassConstFetch && $value->class instanceof Name) {
+                    $className = $value->class->toString();
+                    if (Str::endsWith($className, 'Resource')) {
+                        $fullClass = $this->resolveClassName($className, $reflection);
+                        if ($fullClass && class_exists($fullClass)) {
+                            return $fullClass;
+                        }
+                    }
                 }
             }
+        }
 
-            // Pattern 6: Response::json()
-            if (preg_match('/Response::json\([^)]*(\w+Resource)::(make|collection)/', $methodBody, $matches)) {
-                $resourceName = $matches[1];
-                $fullClass = $this->findFullClassName($reflection, $resourceName);
-                if ($fullClass && class_exists($fullClass)) {
-                    return $fullClass;
-                }
+        return null;
+    }
+
+    /**
+     * Resolve class name to full namespace using use statements.
+     *
+     * @param string $shortName The short class name
+     * @param ReflectionMethod $reflection The method reflection
+     * @return string|null Full class name or null
+     */
+    protected function resolveClassName(string $shortName, ReflectionMethod $reflection): ?string
+    {
+        // First try to find in use statements
+        $fullClass = $this->findFullClassName($reflection, $shortName);
+        if ($fullClass) {
+            return $fullClass;
+        }
+
+        // Try common namespaces
+        $commonPaths = [
+            "{$this->resourcesNamespace}\\{$shortName}",
+            "{$this->resourcesNamespace}\\Cards\\{$shortName}",
+            "{$this->resourcesNamespace}\\Users\\{$shortName}",
+            "{$this->resourcesNamespace}\\Companies\\{$shortName}",
+            "{$this->resourcesNamespace}\\ServiceCompanies\\{$shortName}",
+            "{$this->resourcesNamespace}\\Invest\\{$shortName}",
+        ];
+
+        foreach ($commonPaths as $path) {
+            if (class_exists($path)) {
+                return $path;
             }
-        } catch (Throwable $e) {
-            $onError("Could not extract resource from method body", "Unable to analyze method body for resource extraction. The code may use patterns not recognized by the analyzer.");
         }
 
         return null;
@@ -510,4 +629,3 @@ class ResourceAnalyzer
         return $namespace . '\\' . $fileItem->getFilenameWithoutExtension();
     }
 }
-

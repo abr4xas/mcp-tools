@@ -184,4 +184,3 @@ class FormRequestAnalyzer
         return $schema;
     }
 }
-
