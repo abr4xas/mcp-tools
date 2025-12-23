@@ -20,7 +20,9 @@ use Throwable;
 
 class GenerateApiContractCommand extends Command
 {
-    protected $signature = 'api:generate-contract';
+    protected $signature = 'api:generate-contract
+                            {--strict : Fail on critical errors instead of continuing}
+                            {--detailed : Show detailed error messages}';
 
     protected $description = 'Generate a public-facing API contract for MCP consumption';
 
@@ -32,9 +34,17 @@ class GenerateApiContractCommand extends Command
     /** @var array<string, array> */
     protected array $resourceSchemaCache = [];
 
+    protected int $warningCount = 0;
+
+    protected int $errorCount = 0;
+
     public function handle(): int
     {
         $this->info('Generating API contract...');
+
+        // Reset counters
+        $this->warningCount = 0;
+        $this->errorCount = 0;
 
         // Optimization: Pre-scan resources to avoid File scanning inside the loop
         $this->preloadResources();
@@ -58,7 +68,9 @@ class GenerateApiContractCommand extends Command
                     continue;
                 }
 
-                $this->output->write("Processing {$method} {$normalizedUri} ... ");
+                if ($this->option('detailed')) {
+                    $this->output->write("Processing {$method} {$normalizedUri} ... ");
+                }
 
                 $pathParams = $this->extractPathParams($normalizedUri);
                 $auth = $this->determineAuth($route);
@@ -81,7 +93,9 @@ class GenerateApiContractCommand extends Command
                     'api_version' => $apiVersion,
                 ];
 
-                $this->output->writeln('Done.');
+                if ($this->option('detailed')) {
+                    $this->output->writeln('Done.');
+                }
             }
         }
 
@@ -91,17 +105,32 @@ class GenerateApiContractCommand extends Command
         }
 
         $fullPath = "{$directory}/api.json";
-        $json = json_encode($contract, JSON_UNESCAPED_SLASHES);
+        $json = json_encode($contract, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 
         if ($json === false) {
-            $this->error('Failed to encode contract to JSON');
+            $errorMsg = 'Failed to encode contract to JSON. Error: ' . json_last_error_msg();
+            $this->error($errorMsg);
+            $this->errorCount++;
 
+            if ($this->option('strict')) {
+                return self::FAILURE;
+            }
+        } else {
+            File::put($fullPath, $json);
+            $this->info("Contract generated at: {$fullPath}");
+        }
+
+        // Show summary
+        $this->displaySummary();
+
+        // Return appropriate exit code
+        if ($this->option('strict') && ($this->errorCount > 0 || $this->warningCount > 0)) {
             return self::FAILURE;
         }
 
-        File::put($fullPath, $json);
-
-        $this->info("Contract generated at: {$fullPath}");
+        if ($this->errorCount > 0) {
+            return self::FAILURE;
+        }
 
         return self::SUCCESS;
     }
@@ -162,7 +191,11 @@ class GenerateApiContractCommand extends Command
                                 ];
                             }
                         } catch (Throwable $e) {
-                            $this->warn("Could not instantiate FormRequest {$class}: {$e->getMessage()}");
+                            $errorMsg = "Could not instantiate FormRequest {$class}";
+                            if ($this->option('detailed')) {
+                                $errorMsg .= ": {$e->getMessage()}";
+                            }
+                            $this->handleError($errorMsg, "FormRequest {$class} may require dependencies or have constructor parameters that cannot be resolved automatically.");
 
                             return ['location' => 'unknown', 'properties' => [], 'error' => 'Could not instantiate FormRequest'];
                         }
@@ -184,7 +217,11 @@ class GenerateApiContractCommand extends Command
                 }
             }
         } catch (Throwable $e) {
-            $this->warn("Could not reflect method {$cacheKey}: {$e->getMessage()}");
+            $errorMsg = "Could not reflect method {$cacheKey}";
+            if ($this->option('detailed')) {
+                $errorMsg .= ": {$e->getMessage()}";
+            }
+            $this->handleError($errorMsg, "Method {$cacheKey} may not exist or may not be accessible. Check that the controller and method are properly defined.");
 
             return [];
         }
@@ -323,7 +360,11 @@ class GenerateApiContractCommand extends Command
                     }
                 }
             } catch (Throwable $e) {
-                $this->warn("Could not extract response schema for {$cacheKey}: {$e->getMessage()}");
+                $errorMsg = "Could not extract response schema for {$cacheKey}";
+                if ($this->option('detailed')) {
+                    $errorMsg .= ": {$e->getMessage()}";
+                }
+                $this->handleError($errorMsg, "Unable to analyze response schema for {$cacheKey}. The method may have complex return types or dependencies.");
             }
         }
 
@@ -426,7 +467,11 @@ class GenerateApiContractCommand extends Command
                 return $result;
             }
         } catch (Throwable $e) {
-            $this->warn("Could not inspect response class {$responseClass}: {$e->getMessage()}");
+            $errorMsg = "Could not inspect response class {$responseClass}";
+            if ($this->option('detailed')) {
+                $errorMsg .= ": {$e->getMessage()}";
+            }
+            $this->handleError($errorMsg, "Unable to inspect response class {$responseClass}. The class file may be inaccessible or corrupted.");
         }
 
         $cache[$responseClass] = null;
@@ -506,7 +551,11 @@ class GenerateApiContractCommand extends Command
 
                 return $result;
             } catch (Throwable $e) {
-                $this->warn("Factory failed for {$resourceClass}: {$e->getMessage()}");
+                $errorMsg = "Factory failed for {$resourceClass}";
+                if ($this->option('detailed')) {
+                    $errorMsg .= ": {$e->getMessage()}";
+                }
+                $this->handleError($errorMsg, "Model factory for {$resourceClass} failed. Ensure the model has a factory defined and all required dependencies are available.");
                 $result = ['undocumented' => true, 'error' => 'Factory failed'];
                 $this->resourceSchemaCache[$resourceClass] = $result;
 
@@ -646,7 +695,11 @@ class GenerateApiContractCommand extends Command
                 }
             }
         } catch (Throwable $e) {
-            $this->warn("Could not extract resource from method body: {$e->getMessage()}");
+            $errorMsg = "Could not extract resource from method body";
+            if ($this->option('detailed')) {
+                $errorMsg .= ": {$e->getMessage()}";
+            }
+            $this->handleError($errorMsg, "Unable to analyze method body for resource extraction. The code may use patterns not recognized by the analyzer.");
         }
 
         return null;
@@ -766,5 +819,51 @@ class GenerateApiContractCommand extends Command
         }
 
         return $headers;
+    }
+
+    /**
+     * Handle errors and warnings with appropriate messaging
+     */
+    protected function handleError(string $message, string $suggestion = ''): void
+    {
+        $this->warningCount++;
+
+        if ($this->option('detailed') && $suggestion) {
+            $this->warn("{$message}. Suggestion: {$suggestion}");
+        } else {
+            $this->warn($message);
+        }
+
+        if ($this->option('strict')) {
+            $this->errorCount++;
+        }
+    }
+
+    /**
+     * Display summary of warnings and errors at the end
+     */
+    protected function displaySummary(): void
+    {
+        $this->newLine();
+
+        if ($this->warningCount > 0 || $this->errorCount > 0) {
+            if ($this->errorCount > 0) {
+                $this->error("Errors: {$this->errorCount}");
+            }
+
+            if ($this->warningCount > 0) {
+                $this->warn("Warnings: {$this->warningCount}");
+            }
+
+            $this->newLine();
+
+            if ($this->option('strict')) {
+                $this->error('Strict mode enabled: Contract generation completed with errors/warnings.');
+            } else {
+                $this->info('Contract generation completed with warnings. Use --strict to fail on errors.');
+            }
+        } else {
+            $this->info('Contract generation completed successfully with no warnings or errors.');
+        }
     }
 }

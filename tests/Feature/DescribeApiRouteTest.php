@@ -282,16 +282,16 @@ it('handles invalid contract structure gracefully', function () {
     $reflection = new ReflectionClass(DescribeApiRoute::class);
     $property = $reflection->getProperty('contractCache');
     $property->setValue(null, []);
-    
+
     // Delete existing contract and create invalid one
     $contractPath = storage_path('api-contracts');
     $contractFile = $contractPath . '/api.json';
-    
+
     // Delete the valid contract created by beforeEach
     if (\Illuminate\Support\Facades\File::exists($contractFile)) {
         \Illuminate\Support\Facades\File::delete($contractFile);
     }
-    
+
     // Create contract with invalid structure (missing auth field)
     $invalidContract = [
         '/api/v1/posts' => [
@@ -301,12 +301,12 @@ it('handles invalid contract structure gracefully', function () {
             ],
         ],
     ];
-    
+
     \Illuminate\Support\Facades\File::put(
         $contractFile,
         json_encode($invalidContract, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
     );
-    
+
     // The validation happens in loadContract, which is called after path validation
     // So we need to ensure the contract is loaded. Since loadContract returns null for invalid contracts,
     // we test that the error message is returned when trying to use the tool.
@@ -316,14 +316,14 @@ it('handles invalid contract structure gracefully', function () {
         'path' => '/api/v1/posts',
         'method' => 'GET',
     ]);
-    
+
     $response = $this->tool->handle($request);
     $text = $this->getResponseText($response);
-    
+
     // When contract is invalid, loadContract returns null, so it should return error about invalid structure
     // The contract file exists but has invalid structure
     expect($text)->toContain('invalid structure');
-    
+
     // Clean up and restore valid contract for other tests
     \Illuminate\Support\Facades\File::delete($contractFile);
     $this->createSampleContract();
