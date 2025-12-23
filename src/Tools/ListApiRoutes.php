@@ -30,6 +30,7 @@ class ListApiRoutes extends Tool
         $version = $request->get('version', '');
         $search = $request->get('search', '');
         $limit = min(max((int) $request->get('limit', 50), 1), 200);
+        $includeMetadata = (bool) $request->get('include_metadata', false);
         
         // Pagination support: can use either 'page' or 'offset'
         $page = (int) $request->get('page', 0);
@@ -71,12 +72,23 @@ class ListApiRoutes extends Tool
                     continue;
                 }
 
-                $routes[] = [
+                $routeInfo = [
                     'path' => $path,
                     'method' => $httpMethod,
                     'auth' => $routeData['auth']['type'] ?? 'none',
                     'api_version' => $routeData['api_version'] ?? null,
                 ];
+
+                // Include metadata if requested
+                if ($includeMetadata) {
+                    $routeInfo['rate_limit'] = $routeData['rate_limit'] ?? null;
+                    $routeInfo['custom_headers'] = $routeData['custom_headers'] ?? [];
+                    $routeInfo['path_parameters'] = $routeData['path_parameters'] ?? [];
+                    $routeInfo['has_request_schema'] = ! empty($routeData['request_schema'] ?? []);
+                    $routeInfo['has_response_schema'] = ! empty($routeData['response_schema'] ?? []) && ! isset($routeData['response_schema']['undocumented']);
+                }
+
+                $routes[] = $routeInfo;
             }
         }
 
@@ -123,6 +135,9 @@ class ListApiRoutes extends Tool
                 ->description('Number of routes to skip. Mutually exclusive with page.')
                 ->default(0)
                 ->minimum(0),
+            'include_metadata' => $schema->boolean()
+                ->description('Include additional metadata (rate limits, custom headers, path parameters, schema info)')
+                ->default(false),
         ];
     }
 
