@@ -4,7 +4,7 @@ use Abr4xas\McpTools\Tools\DescribeApiRoute;
 use Laravel\Mcp\Request;
 
 beforeEach(function () {
-    $this->tool = new DescribeApiRoute();
+    $this->tool = new DescribeApiRoute;
     $this->createSampleContract(); // Create contract before each test
 });
 
@@ -34,6 +34,7 @@ it('returns complete route data for exact path match', function () {
     // Skip if json decode failed (means tool returned error message)
     if ($result === null) {
         expect($text)->toBeString()->and($text)->not->toBeEmpty();
+
         return;
     }
 
@@ -57,6 +58,7 @@ it('matches routes with parameters using pattern matching', function () {
 
     if ($result === null) {
         expect($text)->toBeString()->and($text)->not->toBeEmpty();
+
         return;
     }
 
@@ -79,6 +81,7 @@ it('normalizes paths by adding leading slash', function () {
 
     if ($result === null) {
         expect($text)->toBeString()->and($text)->not->toBeEmpty();
+
         return;
     }
 
@@ -97,6 +100,7 @@ it('defaults to GET method when not specified', function () {
 
     if ($result === null) {
         expect($text)->toBeString()->and($text)->not->toBeEmpty();
+
         return;
     }
 
@@ -111,7 +115,7 @@ it('validates HTTP method is valid', function () {
     ]]);
     $response = $this->tool->handle($request);
 
-    expect($this->getResponseText($response))->toContain("Error");
+    expect($this->getResponseText($response))->toContain('Error');
 });
 
 it('returns undocumented flag for non-existent routes', function () {
@@ -126,6 +130,7 @@ it('returns undocumented flag for non-existent routes', function () {
 
     if ($result === null) {
         expect($text)->toBeString()->and($text)->not->toBeEmpty();
+
         return;
     }
 
@@ -162,6 +167,7 @@ it('handles POST method with correct route data', function () {
 
     if ($result === null) {
         expect($text)->toBeString()->and($text)->not->toBeEmpty();
+
         return;
     }
 
@@ -182,6 +188,7 @@ it('handles DELETE method for parameterized routes', function () {
 
     if ($result === null) {
         expect($text)->toBeString()->and($text)->not->toBeEmpty();
+
         return;
     }
 
@@ -202,6 +209,7 @@ it('handles case-insensitive HTTP methods', function () {
 
     if ($result === null) {
         expect($text)->toBeString()->and($text)->not->toBeEmpty();
+
         return;
     }
 
@@ -247,6 +255,7 @@ it('includes auth type in route data', function () {
 
     if ($result === null) {
         expect($text)->toBeString()->and($text)->not->toBeEmpty();
+
         return;
     }
 
@@ -268,6 +277,7 @@ it('includes API version in route data', function () {
 
     if ($result === null) {
         expect($text)->toBeString()->and($text)->not->toBeEmpty();
+
         return;
     }
 

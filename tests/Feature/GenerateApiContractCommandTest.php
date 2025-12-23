@@ -1,15 +1,13 @@
 <?php
 
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\Resources\Json\JsonResource;
+use Abr4xas\McpTools\Commands\GenerateApiContractCommand;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
-use Abr4xas\McpTools\Commands\GenerateApiContractCommand;
 
 it('command generates API contract successfully', function () {
     // Simulate some API routes
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/test', fn() => response()->json([]))->name('api.v1.test');
+        Route::get('/test', fn () => response()->json([]))->name('api.v1.test');
     });
 
     $this->artisan(GenerateApiContractCommand::class)
@@ -20,7 +18,7 @@ it('command generates API contract successfully', function () {
 
 it('command creates JSON file with valid structure', function () {
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/test', fn() => response()->json([]))->name('api.v1.test');
+        Route::get('/test', fn () => response()->json([]))->name('api.v1.test');
     });
 
     $this->artisan(GenerateApiContractCommand::class);

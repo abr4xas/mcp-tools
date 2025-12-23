@@ -56,7 +56,7 @@ class DescribeApiRoute extends Tool
         }
 
         // Normalize path: ensure leading slash
-        $normalizedPath = '/' . mb_ltrim($path, '/');
+        $normalizedPath = '/'.mb_ltrim($path, '/');
 
         $contract = $this->contractLoader->load();
         if ($contract === null) {
@@ -158,6 +158,6 @@ class DescribeApiRoute extends Tool
         // Handle case where {param} might be at start or have no leading slash in pattern?
         // Usually /api/v1/posts/{post} -> /api/v1/posts/[^/]+
 
-        return (bool) preg_match('#^' . $escaped . '$#', $path);
+        return (bool) preg_match('#^'.$escaped.'$#', $path);
     }
 }

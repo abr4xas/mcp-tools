@@ -113,7 +113,7 @@ class ListApiRoutes extends Tool
         }
 
         // Sort by path
-        usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+        usort($routes, fn (array $a, array $b): int => strcmp($a['path'], $b['path']));
 
         $total = count($routes);
         $totalPages = (int) ceil($total / $limit);

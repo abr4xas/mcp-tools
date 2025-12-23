@@ -2,14 +2,15 @@
 
 namespace Abr4xas\McpTools\Tests;
 
+use Abr4xas\McpTools\McpToolsServiceProvider;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Orchestra\Testbench\TestCase as Orchestra;
-use Abr4xas\McpTools\McpToolsServiceProvider;
 
 /**
  * @method void createSampleContract(?array $contract = null)
  * @method array getDefaultContract()
  * @method string getResponseText(\Laravel\Mcp\Response $response)
+ *
  * @property string $contractPath
  */
 class TestCase extends Orchestra
@@ -21,7 +22,7 @@ class TestCase extends Orchestra
         parent::setUp();
 
         Factory::guessFactoryNamesUsing(
-            fn(string $modelName) => 'Abr4xas\\McpTools\\Database\\Factories\\' . class_basename($modelName) . 'Factory'
+            fn (string $modelName) => 'Abr4xas\\McpTools\\Database\\Factories\\'.class_basename($modelName).'Factory'
         );
 
         // Create temporary storage directory for test contracts
@@ -44,7 +45,7 @@ class TestCase extends Orchestra
     protected function tearDown(): void
     {
         // Clean up test contract file (not entire directory)
-        $contractFile = $this->contractPath . '/api.json';
+        $contractFile = $this->contractPath.'/api.json';
         if (\Illuminate\Support\Facades\File::exists($contractFile)) {
             \Illuminate\Support\Facades\File::delete($contractFile);
         }
@@ -57,7 +58,7 @@ class TestCase extends Orchestra
         $contract = $contract ?? $this->getDefaultContract();
 
         \Illuminate\Support\Facades\File::put(
-            $this->contractPath . '/api.json',
+            $this->contractPath.'/api.json',
             json_encode($contract, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
         );
     }
