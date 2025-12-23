@@ -80,6 +80,7 @@ class ContractLoader
     {
         // Contract should be an associative array where keys are route paths
         foreach ($contract as $path => $methods) {
+            // PHPStan knows $path is string from array key, but we validate for runtime safety
             if (! is_string($path)) {
                 return false;
             }
@@ -104,12 +105,14 @@ class ContractLoader
                 }
 
                 // Validate auth structure
-                if (! isset($routeData['auth']['type']) || ! is_string($routeData['auth']['type'])) {
+                $authType = $routeData['auth']['type'] ?? null;
+                if (! is_string($authType)) {
                     return false;
                 }
 
                 // path_parameters should be an array if present
-                if (isset($routeData['path_parameters']) && ! is_array($routeData['path_parameters'])) {
+                $pathParameters = $routeData['path_parameters'] ?? null;
+                if ($pathParameters !== null && ! is_array($pathParameters)) {
                     return false;
                 }
             }

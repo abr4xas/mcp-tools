@@ -32,7 +32,7 @@ class ListApiRoutes extends Tool
      *
      * @param ContractLoader|null $contractLoader Optional contract loader instance
      */
-    public function __construct(ContractLoader $contractLoader = null)
+    public function __construct(?ContractLoader $contractLoader = null)
     {
         $this->contractLoader = $contractLoader ?? new ContractLoader();
     }
