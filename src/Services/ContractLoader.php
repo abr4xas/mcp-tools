@@ -58,7 +58,9 @@ class ContractLoader
     }
 
     /**
-     * Clear the contract cache
+     * Clear the contract cache.
+     *
+     * Useful for testing or when contract file is updated.
      */
     public function clearCache(): void
     {
@@ -66,9 +68,13 @@ class ContractLoader
     }
 
     /**
-     * Validate the structure of the contract
+     * Validate the structure of the contract.
      *
-     * @param  array<string, mixed>  $contract
+     * Ensures contract has correct structure: routes as keys, methods as nested keys,
+     * and required fields (auth) are present.
+     *
+     * @param array<string, mixed> $contract The contract to validate
+     * @return bool True if contract structure is valid
      */
     protected function validateContractStructure(array $contract): bool
     {
@@ -113,7 +119,9 @@ class ContractLoader
     }
 
     /**
-     * Get the contract file path
+     * Get the contract file path from configuration.
+     *
+     * @return string Full path to the contract JSON file
      */
     public function getContractPath(): string
     {

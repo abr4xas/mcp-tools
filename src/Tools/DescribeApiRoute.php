@@ -76,6 +76,12 @@ class DescribeApiRoute extends Tool
         return Response::text(json_encode($routeData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
+    /**
+     * Define the JSON schema for tool arguments.
+     *
+     * @param JsonSchema $schema The schema builder
+     * @return array<string, mixed> Schema definition
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -91,10 +97,15 @@ class DescribeApiRoute extends Tool
 
 
     /**
-     * Find route data in contract, trying exact match first, then pattern matching
+     * Find route data in contract, trying exact match first, then pattern matching.
      *
-     * @param  array<string, array>  $contract
-     * @return array<string, mixed>|null
+     * First attempts an exact path match, then tries pattern matching for
+     * dynamic routes with parameters.
+     *
+     * @param array<string, array> $contract The loaded contract
+     * @param string $path The route path to find
+     * @param string $method The HTTP method
+     * @return array<string, mixed>|null Route data or null if not found
      */
     protected function findRouteData(array $contract, string $path, string $method): ?array
     {
