@@ -38,13 +38,12 @@ it('generates contract using mocked analyzers', function () {
     $resourceAnalyzer->shouldReceive('extractResponseSchema')
         ->andReturn(['type' => 'object', 'properties' => ['id' => ['type' => 'integer']]]);
 
-    $command = new GenerateApiContractCommand(
-        $routeAnalyzer,
-        $formRequestAnalyzer,
-        $resourceAnalyzer
-    );
+    // Bind mocks to service container
+    app()->instance(RouteAnalyzerInterface::class, $routeAnalyzer);
+    app()->instance(FormRequestAnalyzerInterface::class, $formRequestAnalyzer);
+    app()->instance(ResourceAnalyzerInterface::class, $resourceAnalyzer);
 
-    $this->artisan($command)
+    $this->artisan(GenerateApiContractCommand::class)
         ->assertSuccessful();
 
     expect(File::exists(storage_path('api-contracts/api.json')))->toBeTrue();
@@ -79,13 +78,11 @@ it('handles errors from analyzers gracefully', function () {
     $resourceAnalyzer->shouldReceive('extractResponseSchema')
         ->andReturn(['undocumented' => true]);
 
-    $command = new GenerateApiContractCommand(
-        $routeAnalyzer,
-        $formRequestAnalyzer,
-        $resourceAnalyzer
-    );
+    app()->instance(RouteAnalyzerInterface::class, $routeAnalyzer);
+    app()->instance(FormRequestAnalyzerInterface::class, $formRequestAnalyzer);
+    app()->instance(ResourceAnalyzerInterface::class, $resourceAnalyzer);
 
-    $this->artisan($command)
+    $this->artisan(GenerateApiContractCommand::class)
         ->assertSuccessful();
 });
 
@@ -102,21 +99,23 @@ it('returns failure code when strict mode is enabled and errors occur', function
     $routeAnalyzer->shouldReceive('extractApiVersion')->andReturn(null);
 
     $formRequestAnalyzer = Mockery::mock(FormRequestAnalyzerInterface::class);
+    // Return error that will trigger handleError
     $formRequestAnalyzer->shouldReceive('extractRequestSchema')
-        ->andReturn(['location' => 'unknown', 'properties' => [], 'error' => 'Could not instantiate FormRequest']);
+        ->andReturnUsing(function ($action, $isQuery, $onError) {
+            $onError('Test error', 'Test suggestion');
+            return ['location' => 'unknown', 'properties' => [], 'error' => 'Could not instantiate FormRequest'];
+        });
 
     $resourceAnalyzer = Mockery::mock(ResourceAnalyzerInterface::class);
     $resourceAnalyzer->shouldReceive('preloadResources')->once();
     $resourceAnalyzer->shouldReceive('extractResponseSchema')
         ->andReturn(['undocumented' => true]);
 
-    $command = new GenerateApiContractCommand(
-        $routeAnalyzer,
-        $formRequestAnalyzer,
-        $resourceAnalyzer
-    );
+    app()->instance(RouteAnalyzerInterface::class, $routeAnalyzer);
+    app()->instance(FormRequestAnalyzerInterface::class, $formRequestAnalyzer);
+    app()->instance(ResourceAnalyzerInterface::class, $resourceAnalyzer);
 
-    $this->artisan($command, ['--strict' => true])
+    $this->artisan(GenerateApiContractCommand::class, ['--strict' => true])
         ->assertFailed();
 });
 
@@ -141,12 +140,10 @@ it('calls preloadResources on resource analyzer', function () {
     $resourceAnalyzer->shouldReceive('extractResponseSchema')
         ->andReturn(['undocumented' => true]);
 
-    $command = new GenerateApiContractCommand(
-        $routeAnalyzer,
-        $formRequestAnalyzer,
-        $resourceAnalyzer
-    );
+    app()->instance(RouteAnalyzerInterface::class, $routeAnalyzer);
+    app()->instance(FormRequestAnalyzerInterface::class, $formRequestAnalyzer);
+    app()->instance(ResourceAnalyzerInterface::class, $resourceAnalyzer);
 
-    $this->artisan($command)
+    $this->artisan(GenerateApiContractCommand::class)
         ->assertSuccessful();
 });
