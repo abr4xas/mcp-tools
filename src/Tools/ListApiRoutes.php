@@ -119,6 +119,46 @@ class ListApiRoutes extends Tool
             }
         }
 
+        // Search in API version
+        $apiVersion = $routeData['api_version'] ?? null;
+        if ($apiVersion && mb_strpos(mb_strtolower((string) $apiVersion), $searchLower) !== false) {
+            return true;
+        }
+
+        // Search in auth type
+        $authType = $routeData['auth']['type'] ?? null;
+        if ($authType && mb_strpos(mb_strtolower((string) $authType), $searchLower) !== false) {
+            return true;
+        }
+
+        // Search in request schema properties (field names)
+        $requestSchema = $routeData['request_schema'] ?? [];
+        if (isset($requestSchema['properties']) && is_array($requestSchema['properties'])) {
+            foreach (array_keys($requestSchema['properties']) as $field) {
+                if (mb_strpos(mb_strtolower((string) $field), $searchLower) !== false) {
+                    return true;
+                }
+            }
+        }
+
+        // Search in response schema properties (field names)
+        $responseSchema = $routeData['response_schema'] ?? [];
+        if (isset($responseSchema['properties']) && is_array($responseSchema['properties'])) {
+            foreach (array_keys($responseSchema['properties']) as $field) {
+                if (mb_strpos(mb_strtolower((string) $field), $searchLower) !== false) {
+                    return true;
+                }
+            }
+        }
+
+        // Search in rate limit name
+        $rateLimit = $routeData['rate_limit'] ?? null;
+        if ($rateLimit && isset($rateLimit['name'])) {
+            if (mb_strpos(mb_strtolower((string) $rateLimit['name']), $searchLower) !== false) {
+                return true;
+            }
+        }
+
         return false;
     }
 }
