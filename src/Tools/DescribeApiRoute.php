@@ -35,7 +35,12 @@ class DescribeApiRoute extends Tool
 
         $contract = $this->loadContract();
         if ($contract === null) {
-            return Response::text("Error: Contract not found. Run 'php artisan api:generate-contract'.");
+            $fullPath = storage_path('api-contracts/api.json');
+            if (! File::exists($fullPath)) {
+                return Response::text("Error: Contract not found. Run 'php artisan api:generate-contract'.");
+            }
+            
+            return Response::text("Error: Contract file exists but has invalid structure. Please regenerate the contract with 'php artisan api:generate-contract'.");
         }
 
         $routeData = $this->findRouteData($contract, $normalizedPath, $method);
@@ -86,9 +91,61 @@ class DescribeApiRoute extends Tool
             return null;
         }
 
+        // Validate contract structure
+        if (! $this->validateContractStructure($contract)) {
+            return null;
+        }
+
         self::$contractCache[$cacheKey] = $contract;
 
         return $contract;
+    }
+
+    /**
+     * Validate the structure of the contract
+     *
+     * @param  array<string, mixed>  $contract
+     */
+    protected function validateContractStructure(array $contract): bool
+    {
+        // Contract should be an associative array where keys are route paths
+        foreach ($contract as $path => $methods) {
+            if (! is_string($path)) {
+                return false;
+            }
+
+            if (! is_array($methods)) {
+                return false;
+            }
+
+            // Each route should have HTTP methods as keys
+            foreach ($methods as $method => $routeData) {
+                if (! is_string($method) || ! in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], true)) {
+                    continue; // Skip invalid methods but don't fail
+                }
+
+                if (! is_array($routeData)) {
+                    return false;
+                }
+
+                // Validate required fields exist (at minimum, auth should be present)
+                if (! isset($routeData['auth']) || ! is_array($routeData['auth'])) {
+                    return false;
+                }
+
+                // Validate auth structure
+                if (! isset($routeData['auth']['type']) || ! is_string($routeData['auth']['type'])) {
+                    return false;
+                }
+
+                // path_parameters should be an array if present
+                if (isset($routeData['path_parameters']) && ! is_array($routeData['path_parameters'])) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**

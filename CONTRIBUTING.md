@@ -133,4 +133,3 @@ fix(command): corregir inconsistencia en signature del comando (#004)
 If you have questions, please open an issue or contact the maintainers.
 
 Thank you for contributing! 🎉
-

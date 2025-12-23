@@ -12,7 +12,6 @@ afterEach(function () {
     // Clear static cache to prevent test pollution
     $reflection = new ReflectionClass(ListApiRoutes::class);
     $property = $reflection->getProperty('contractCache');
-    $property->setAccessible(true);
     $property->setValue(null, []);
 });
 
@@ -128,4 +127,65 @@ it('handles empty search matches', function () {
     $result = json_decode($this->getResponseText($response), true);
 
     expect($result['routes'])->toBeArray();
+});
+
+it('handles invalid contract structure gracefully', function () {
+    // Create an invalid contract file
+    $contractPath = storage_path('api-contracts');
+    \Illuminate\Support\Facades\File::ensureDirectoryExists($contractPath);
+    
+    // Create contract with invalid structure (missing auth field)
+    $invalidContract = [
+        '/api/v1/test' => [
+            'GET' => [
+                'api_version' => 'v1',
+                // Missing 'auth' field
+            ],
+        ],
+    ];
+    
+    \Illuminate\Support\Facades\File::put(
+        $contractPath . '/api.json',
+        json_encode($invalidContract, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+    );
+    
+    $request = new Request(['arguments' => []]);
+    $response = $this->tool->handle($request);
+    
+    $text = $this->getResponseText($response);
+    
+    expect($text)->toContain('invalid structure');
+    
+    // Clean up
+    \Illuminate\Support\Facades\File::delete($contractPath . '/api.json');
+});
+
+it('handles contract with invalid path_parameters type', function () {
+    $contractPath = storage_path('api-contracts');
+    \Illuminate\Support\Facades\File::ensureDirectoryExists($contractPath);
+    
+    // Create contract with invalid path_parameters (should be array, not string)
+    $invalidContract = [
+        '/api/v1/test' => [
+            'GET' => [
+                'auth' => ['type' => 'none'],
+                'path_parameters' => 'invalid', // Should be array
+            ],
+        ],
+    ];
+    
+    \Illuminate\Support\Facades\File::put(
+        $contractPath . '/api.json',
+        json_encode($invalidContract, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+    );
+    
+    $request = new Request(['arguments' => []]);
+    $response = $this->tool->handle($request);
+    
+    $text = $this->getResponseText($response);
+    
+    expect($text)->toContain('invalid structure');
+    
+    // Clean up
+    \Illuminate\Support\Facades\File::delete($contractPath . '/api.json');
 });
