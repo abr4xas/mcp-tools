@@ -30,6 +30,17 @@ class ListApiRoutes extends Tool
         $version = $request->get('version', '');
         $search = $request->get('search', '');
         $limit = min(max((int) $request->get('limit', 50), 1), 200);
+        
+        // Pagination support: can use either 'page' or 'offset'
+        $page = (int) $request->get('page', 0);
+        $offset = (int) $request->get('offset', 0);
+        
+        // If page is provided, calculate offset
+        if ($page > 0) {
+            $offset = ($page - 1) * $limit;
+        }
+        
+        $offset = max($offset, 0);
 
         $contract = $this->contractLoader->load();
         if ($contract === null) {
@@ -72,13 +83,22 @@ class ListApiRoutes extends Tool
         // Sort by path
         usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
 
-        // Apply limit
-        $routes = array_slice($routes, 0, $limit);
+        $total = count($routes);
+        $totalPages = (int) ceil($total / $limit);
+        $currentPage = $page > 0 ? $page : (int) floor($offset / $limit) + 1;
+
+        // Apply pagination
+        $paginatedRoutes = array_slice($routes, $offset, $limit);
 
         return Response::text(json_encode([
-            'total' => count($routes),
+            'total' => $total,
             'limit' => $limit,
-            'routes' => $routes,
+            'offset' => $offset,
+            'page' => $currentPage,
+            'total_pages' => $totalPages,
+            'has_next' => $offset + $limit < $total,
+            'has_previous' => $offset > 0,
+            'routes' => $paginatedRoutes,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
@@ -95,6 +115,14 @@ class ListApiRoutes extends Tool
             'limit' => $schema->integer()
                 ->description('Maximum number of routes to return (default: 50, max: 200)')
                 ->default(50),
+            'page' => $schema->integer()
+                ->description('Page number for pagination (starts at 1). Mutually exclusive with offset.')
+                ->default(1)
+                ->minimum(1),
+            'offset' => $schema->integer()
+                ->description('Number of routes to skip. Mutually exclusive with page.')
+                ->default(0)
+                ->minimum(0),
         ];
     }
 
