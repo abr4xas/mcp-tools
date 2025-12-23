@@ -111,35 +111,10 @@ Get detailed information about a specific endpoint.
 
 ### Registering MCP Tools
 
-The MCP tools provided by this package must be manually registered in your Laravel MCP server configuration. Here's how to register them:
+The MCP tools provided by this package must be manually registered in your Laravel MCP server configuration.
 
-1. **Locate your MCP server configuration file** (typically `config/mcp.php` or in your MCP server setup)
-
-2. **Register the tools** by adding them to your MCP server's tool registry:
-
-```php
-use Abr4xas\McpTools\Tools\ListApiRoutes;
-use Abr4xas\McpTools\Tools\DescribeApiRoute;
-
-// In your MCP server configuration or service provider
-$server->registerTool(ListApiRoutes::class);
-$server->registerTool(DescribeApiRoute::class);
-```
-
-Or if you're using a configuration array:
-
-```php
-// config/mcp.php
-return [
-    'tools' => [
-        \Abr4xas\McpTools\Tools\ListApiRoutes::class,
-        \Abr4xas\McpTools\Tools\DescribeApiRoute::class,
-        // ... your other tools
-    ],
-];
-```
-
-3. **Verify registration** by checking your MCP server's available tools list.
+> **Note**:
+> **Verify registration** by checking your MCP server's available tools list.
 
 #### Troubleshooting
 
@@ -149,29 +124,9 @@ If you encounter issues registering the tools:
 - **Class not found errors**: Run `composer dump-autoload` to refresh the autoloader
 - **Service provider not registered**: Check that `Abr4xas\McpTools\McpToolsServiceProvider` is in your `config/app.php` providers array (should be auto-discovered)
 
-#### Complete Example
 
-Here's a complete example of a typical MCP server configuration:
-
-```php
-<?php
-// config/mcp.php
-
-use Abr4xas\McpTools\Tools\ListApiRoutes;
-use Abr4xas\McpTools\Tools\DescribeApiRoute;
-
-return [
-    'tools' => [
-        ListApiRoutes::class,
-        DescribeApiRoute::class,
-        // ... your other MCP tools
-    ],
-
-    // Other MCP server configuration...
-];
-```
-
-> **Note**: The service provider is automatically registered by Laravel, but the MCP tools themselves require manual registration in your MCP server configuration.
+> **Note**:
+> The service provider is automatically registered by Laravel, but the MCP tools themselves require manual registration in your MCP server configuration.
 
 ## API Contract Structure
 
