@@ -11,17 +11,36 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 
+/**
+ * Describe API Route Tool
+ *
+ * MCP tool that provides detailed information about a specific API route,
+ * including authentication, schemas, and metadata.
+ *
+ * @package Abr4xas\McpTools\Tools
+ */
 class DescribeApiRoute extends Tool
 {
     protected string $description = 'Get the public API contract for a specific route and method.';
 
     protected ContractLoader $contractLoader;
 
+    /**
+     * Create a new DescribeApiRoute instance.
+     *
+     * @param ContractLoader|null $contractLoader Optional contract loader instance
+     */
     public function __construct(ContractLoader $contractLoader = null)
     {
         $this->contractLoader = $contractLoader ?? new ContractLoader();
     }
 
+    /**
+     * Handle the MCP tool request.
+     *
+     * @param Request $request The MCP request with path and method
+     * @return Response JSON response with route details or error message
+     */
     public function handle(Request $request): Response
     {
         $path = $request->get('path');
@@ -44,7 +63,7 @@ class DescribeApiRoute extends Tool
             if (! File::exists($fullPath)) {
                 return Response::text("Error: Contract not found. Run 'php artisan api:generate-contract'.");
             }
-            
+
             return Response::text("Error: Contract file exists but has invalid structure. Please regenerate the contract with 'php artisan api:generate-contract'.");
         }
 

@@ -134,7 +134,7 @@ it('extracts custom headers for webhook routes', function () {
 it('handles routes with FormRequest validation', function () {
     // Create a test FormRequest class
     $formRequestClass = 'Workbench\App\Http\Requests\TestFormRequest';
-    
+
     if (! class_exists($formRequestClass)) {
         // Create a simple FormRequest for testing
         $formRequestCode = <<<'PHP'
@@ -222,7 +222,7 @@ it('only processes routes starting with api/', function () {
 
 it('creates storage directory if it does not exist', function () {
     $directory = storage_path('api-contracts');
-    
+
     // Remove directory if it exists
     if (File::exists($directory)) {
         File::deleteDirectory($directory);

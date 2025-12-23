@@ -19,6 +19,14 @@ use ReflectionMethod;
 use ReflectionNamedType;
 use Throwable;
 
+/**
+ * Generate API Contract Command
+ *
+ * Scans Laravel routes and generates a comprehensive JSON contract describing
+ * all API endpoints, including authentication, request/response schemas, and metadata.
+ *
+ * @package Abr4xas\McpTools\Commands
+ */
 class GenerateApiContractCommand extends Command
 {
     protected $signature = 'api:generate-contract
@@ -27,18 +35,26 @@ class GenerateApiContractCommand extends Command
 
     protected $description = 'Generate a public-facing API contract for MCP consumption';
 
+    /** @var array<string, string> Map of resource names to full class names */
     protected array $availableResources = [];
 
-    /** @var array<string, ReflectionMethod> */
+    /** @var array<string, ReflectionMethod> Cache of reflection methods */
     protected array $reflectionCache = [];
 
-    /** @var array<string, array> */
+    /** @var array<string, array> Cache of resource schemas */
     protected array $resourceSchemaCache = [];
 
+    /** @var int Count of warnings during generation */
     protected int $warningCount = 0;
 
+    /** @var int Count of errors during generation */
     protected int $errorCount = 0;
 
+    /**
+     * Execute the console command.
+     *
+     * @return int Exit code (0 for success, 1 for failure)
+     */
     public function handle(): int
     {
         $this->info('Generating API contract...');
@@ -102,7 +118,7 @@ class GenerateApiContractCommand extends Command
 
         $fullPath = $this->getContractPath();
         $directory = dirname($fullPath);
-        
+
         if (! File::exists($directory)) {
             File::makeDirectory($directory, 0755, true);
         }

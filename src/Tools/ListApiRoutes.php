@@ -11,6 +11,14 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 
+/**
+ * List API Routes Tool
+ *
+ * MCP tool that lists all available API routes with filtering,
+ * pagination, and optional metadata inclusion.
+ *
+ * @package Abr4xas\McpTools\Tools
+ */
 class ListApiRoutes extends Tool
 {
     protected string $name = 'list-api-routes';
@@ -19,11 +27,22 @@ class ListApiRoutes extends Tool
 
     protected ContractLoader $contractLoader;
 
+    /**
+     * Create a new ListApiRoutes instance.
+     *
+     * @param ContractLoader|null $contractLoader Optional contract loader instance
+     */
     public function __construct(ContractLoader $contractLoader = null)
     {
         $this->contractLoader = $contractLoader ?? new ContractLoader();
     }
 
+    /**
+     * Handle the MCP tool request.
+     *
+     * @param Request $request The MCP request with filters and pagination
+     * @return Response JSON response with routes and pagination info
+     */
     public function handle(Request $request): Response
     {
         $method = mb_strtoupper((string) $request->get('method', ''));
@@ -114,6 +133,12 @@ class ListApiRoutes extends Tool
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
+    /**
+     * Define the JSON schema for tool arguments.
+     *
+     * @param JsonSchema $schema The schema builder
+     * @return array<string, mixed> Schema definition
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -141,7 +166,15 @@ class ListApiRoutes extends Tool
 
 
     /**
-     * Check if route matches search term
+     * Check if route matches search term.
+     *
+     * Searches across multiple fields: path, path parameters, API version,
+     * auth type, request/response schema fields, and rate limit names.
+     *
+     * @param string $path The route path
+     * @param array<string, mixed> $routeData The route data from contract
+     * @param string $search The search term
+     * @return bool True if route matches search term
      */
     protected function matchesSearch(string $path, array $routeData, string $search): bool
     {

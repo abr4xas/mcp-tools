@@ -7,9 +7,18 @@ namespace Abr4xas\McpTools\Services;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 
+/**
+ * Contract Loader Service
+ *
+ * Loads and validates API contracts from the file system.
+ * Provides caching to avoid repeated file reads and validates
+ * contract structure before returning.
+ *
+ * @package Abr4xas\McpTools\Services
+ */
 class ContractLoader
 {
-    /** @var array<string, array> */
+    /** @var array<string, array<string, array>> Static cache of loaded contracts */
     protected static array $contractCache = [];
 
     /**
@@ -111,4 +120,3 @@ class ContractLoader
         return Config::get('mcp-tools.contract_path', storage_path('api-contracts/api.json'));
     }
 }
-

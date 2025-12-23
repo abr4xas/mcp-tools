@@ -45,4 +45,3 @@ return [
     */
     'models_namespace' => env('MCP_TOOLS_MODELS_NAMESPACE', 'App\\Models'),
 ];
-
