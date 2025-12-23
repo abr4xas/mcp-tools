@@ -1,0 +1,67 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Method Abr4xas\\McpTools\\Commands\\GenerateApiContractCommand\:\:dataToSchema\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Commands/GenerateApiContractCommand.php
+
+		-
+			message: '#^Method Abr4xas\\McpTools\\Commands\\GenerateApiContractCommand\:\:dataToSchema\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Commands/GenerateApiContractCommand.php
+
+		-
+			message: '#^Method Abr4xas\\McpTools\\Commands\\GenerateApiContractCommand\:\:extractCustomHeaders\(\) has parameter \$route with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Commands/GenerateApiContractCommand.php
+
+		-
+			message: '#^Method Abr4xas\\McpTools\\Commands\\GenerateApiContractCommand\:\:extractCustomHeaders\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Commands/GenerateApiContractCommand.php
+
+		-
+			message: '#^Method Abr4xas\\McpTools\\Commands\\GenerateApiContractCommand\:\:extractRateLimit\(\) has parameter \$route with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Commands/GenerateApiContractCommand.php
+
+		-
+			message: '#^Method Abr4xas\\McpTools\\Commands\\GenerateApiContractCommand\:\:extractRateLimit\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Commands/GenerateApiContractCommand.php
+
+		-
+			message: '#^Method Abr4xas\\McpTools\\Commands\\GenerateApiContractCommand\:\:getClassNameFromFile\(\) has parameter \$fileItem with no type specified\.$#'
+			identifier: missingType.parameter
+			count: 1
+			path: src/Commands/GenerateApiContractCommand.php
+
+		-
+			message: '#^Method Abr4xas\\McpTools\\Commands\\GenerateApiContractCommand\:\:parseValidationRules\(\) has parameter \$rules with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Commands/GenerateApiContractCommand.php
+
+		-
+			message: '#^Method Abr4xas\\McpTools\\Commands\\GenerateApiContractCommand\:\:parseValidationRules\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Commands/GenerateApiContractCommand.php
+
+		-
+			message: '#^Method Abr4xas\\McpTools\\Commands\\GenerateApiContractCommand\:\:simulateResourceOutput\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Commands/GenerateApiContractCommand.php
+
+		-
+			message: '#^Method Abr4xas\\McpTools\\Services\\ContractLoader\:\:load\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/Services/ContractLoader.php

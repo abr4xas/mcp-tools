@@ -4,31 +4,71 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Tools;
 
+use Abr4xas\McpTools\Contracts\ContractLoaderInterface;
+use Abr4xas\McpTools\Services\ContractLoader;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\File;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 
+/**
+ * List API Routes Tool
+ *
+ * MCP tool that lists all available API routes with filtering,
+ * pagination, and optional metadata inclusion.
+ */
 class ListApiRoutes extends Tool
 {
     protected string $name = 'list-api-routes';
 
     protected string $description = 'List all available API routes. Can filter by method, version, or search term.';
 
-    /** @var array<string, array> */
-    protected static array $contractCache = [];
+    protected ContractLoaderInterface $contractLoader;
 
+    /**
+     * Create a new ListApiRoutes instance.
+     *
+     * @param  ContractLoaderInterface|null  $contractLoader  Optional contract loader instance
+     */
+    public function __construct(?ContractLoaderInterface $contractLoader = null)
+    {
+        $this->contractLoader = $contractLoader ?? new ContractLoader;
+    }
+
+    /**
+     * Handle the MCP tool request.
+     *
+     * @param  Request  $request  The MCP request with filters and pagination
+     * @return Response JSON response with routes and pagination info
+     */
     public function handle(Request $request): Response
     {
         $method = mb_strtoupper((string) $request->get('method', ''));
         $version = $request->get('version', '');
         $search = $request->get('search', '');
         $limit = min(max((int) $request->get('limit', 50), 1), 200);
+        $includeMetadata = (bool) $request->get('include_metadata', false);
 
-        $contract = $this->loadContract();
+        // Pagination support: can use either 'page' or 'offset'
+        $page = (int) $request->get('page', 0);
+        $offset = (int) $request->get('offset', 0);
+
+        // If page is provided, calculate offset
+        if ($page > 0) {
+            $offset = ($page - 1) * $limit;
+        }
+
+        $offset = max($offset, 0);
+
+        $contract = $this->contractLoader->load();
         if ($contract === null) {
-            return Response::text("Error: Contract not found. Run 'php artisan api:contract:generate'.");
+            $fullPath = $this->contractLoader->getContractPath();
+            if (! File::exists($fullPath)) {
+                return Response::text("Error: Contract not found. Run 'php artisan api:generate-contract'.");
+            }
+
+            return Response::text("Error: Contract file exists but has invalid structure. Please regenerate the contract with 'php artisan api:generate-contract'.");
         }
 
         $routes = [];
@@ -50,28 +90,54 @@ class ListApiRoutes extends Tool
                     continue;
                 }
 
-                $routes[] = [
+                $routeInfo = [
                     'path' => $path,
                     'method' => $httpMethod,
                     'auth' => $routeData['auth']['type'] ?? 'none',
                     'api_version' => $routeData['api_version'] ?? null,
                 ];
+
+                // Include metadata if requested
+                if ($includeMetadata) {
+                    $routeInfo['rate_limit'] = $routeData['rate_limit'] ?? null;
+                    $routeInfo['custom_headers'] = $routeData['custom_headers'] ?? [];
+                    $routeInfo['path_parameters'] = $routeData['path_parameters'] ?? [];
+                    $routeInfo['has_request_schema'] = ! empty($routeData['request_schema'] ?? []);
+                    $routeInfo['has_response_schema'] = ! empty($routeData['response_schema'] ?? []) && ! isset($routeData['response_schema']['undocumented']);
+                }
+
+                $routes[] = $routeInfo;
             }
         }
 
         // Sort by path
         usort($routes, fn (array $a, array $b): int => strcmp($a['path'], $b['path']));
 
-        // Apply limit
-        $routes = array_slice($routes, 0, $limit);
+        $total = count($routes);
+        $totalPages = (int) ceil($total / $limit);
+        $currentPage = $page > 0 ? $page : (int) floor($offset / $limit) + 1;
+
+        // Apply pagination
+        $paginatedRoutes = array_slice($routes, $offset, $limit);
 
         return Response::text(json_encode([
-            'total' => count($routes),
+            'total' => $total,
             'limit' => $limit,
-            'routes' => $routes,
+            'offset' => $offset,
+            'page' => $currentPage,
+            'total_pages' => $totalPages,
+            'has_next' => $offset + $limit < $total,
+            'has_previous' => $offset > 0,
+            'routes' => $paginatedRoutes,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
+    /**
+     * Define the JSON schema for tool arguments.
+     *
+     * @param  JsonSchema  $schema  The schema builder
+     * @return array<string, mixed> Schema definition
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -85,42 +151,28 @@ class ListApiRoutes extends Tool
             'limit' => $schema->integer()
                 ->description('Maximum number of routes to return (default: 50, max: 200)')
                 ->default(50),
+            'page' => $schema->integer()
+                ->description('Page number for pagination (starts at 1). Mutually exclusive with offset.')
+                ->default(1),
+            'offset' => $schema->integer()
+                ->description('Number of routes to skip. Mutually exclusive with page.')
+                ->default(0),
+            'include_metadata' => $schema->boolean()
+                ->description('Include additional metadata (rate limits, custom headers, path parameters, schema info)')
+                ->default(false),
         ];
     }
 
     /**
-     * Load contract from cache or file system
+     * Check if route matches search term.
      *
-     * @return array<string, array>|null
-     */
-    protected function loadContract(): ?array
-    {
-        $cacheKey = 'contract_api';
-
-        if (isset(self::$contractCache[$cacheKey])) {
-            return self::$contractCache[$cacheKey];
-        }
-
-        $fullPath = storage_path('api-contracts/api.json');
-
-        if (! File::exists($fullPath)) {
-            return null;
-        }
-
-        $content = File::get($fullPath);
-        $contract = json_decode($content, true);
-
-        if (! is_array($contract)) {
-            return null;
-        }
-
-        self::$contractCache[$cacheKey] = $contract;
-
-        return $contract;
-    }
-
-    /**
-     * Check if route matches search term
+     * Searches across multiple fields: path, path parameters, API version,
+     * auth type, request/response schema fields, and rate limit names.
+     *
+     * @param  string  $path  The route path
+     * @param  array<string, mixed>  $routeData  The route data from contract
+     * @param  string  $search  The search term
+     * @return bool True if route matches search term
      */
     protected function matchesSearch(string $path, array $routeData, string $search): bool
     {
@@ -135,6 +187,46 @@ class ListApiRoutes extends Tool
         $pathParams = $routeData['path_parameters'] ?? [];
         foreach ($pathParams as $param) {
             if (mb_strpos(mb_strtolower((string) $param), $searchLower) !== false) {
+                return true;
+            }
+        }
+
+        // Search in API version
+        $apiVersion = $routeData['api_version'] ?? null;
+        if ($apiVersion && mb_strpos(mb_strtolower((string) $apiVersion), $searchLower) !== false) {
+            return true;
+        }
+
+        // Search in auth type
+        $authType = $routeData['auth']['type'] ?? null;
+        if ($authType && mb_strpos(mb_strtolower((string) $authType), $searchLower) !== false) {
+            return true;
+        }
+
+        // Search in request schema properties (field names)
+        $requestSchema = $routeData['request_schema'] ?? [];
+        if (isset($requestSchema['properties']) && is_array($requestSchema['properties'])) {
+            foreach (array_keys($requestSchema['properties']) as $field) {
+                if (mb_strpos(mb_strtolower((string) $field), $searchLower) !== false) {
+                    return true;
+                }
+            }
+        }
+
+        // Search in response schema properties (field names)
+        $responseSchema = $routeData['response_schema'] ?? [];
+        if (isset($responseSchema['properties']) && is_array($responseSchema['properties'])) {
+            foreach (array_keys($responseSchema['properties']) as $field) {
+                if (mb_strpos(mb_strtolower((string) $field), $searchLower) !== false) {
+                    return true;
+                }
+            }
+        }
+
+        // Search in rate limit name
+        $rateLimit = $routeData['rate_limit'] ?? null;
+        if ($rateLimit && isset($rateLimit['name'])) {
+            if (mb_strpos(mb_strtolower((string) $rateLimit['name']), $searchLower) !== false) {
                 return true;
             }
         }

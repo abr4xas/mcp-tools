@@ -4,19 +4,42 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Tools;
 
+use Abr4xas\McpTools\Contracts\ContractLoaderInterface;
+use Abr4xas\McpTools\Services\ContractLoader;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\File;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 
+/**
+ * Describe API Route Tool
+ *
+ * MCP tool that provides detailed information about a specific API route,
+ * including authentication, schemas, and metadata.
+ */
 class DescribeApiRoute extends Tool
 {
     protected string $description = 'Get the public API contract for a specific route and method.';
 
-    /** @var array<string, array> */
-    protected static array $contractCache = [];
+    protected ContractLoaderInterface $contractLoader;
 
+    /**
+     * Create a new DescribeApiRoute instance.
+     *
+     * @param  ContractLoaderInterface|null  $contractLoader  Optional contract loader instance
+     */
+    public function __construct(?ContractLoaderInterface $contractLoader = null)
+    {
+        $this->contractLoader = $contractLoader ?? new ContractLoader;
+    }
+
+    /**
+     * Handle the MCP tool request.
+     *
+     * @param  Request  $request  The MCP request with path and method
+     * @return Response JSON response with route details or error message
+     */
     public function handle(Request $request): Response
     {
         $path = $request->get('path');
@@ -33,9 +56,14 @@ class DescribeApiRoute extends Tool
         // Normalize path: ensure leading slash
         $normalizedPath = '/'.mb_ltrim($path, '/');
 
-        $contract = $this->loadContract();
+        $contract = $this->contractLoader->load();
         if ($contract === null) {
-            return Response::text("Error: Contract not found. Run 'php artisan api:contract:generate'.");
+            $fullPath = $this->contractLoader->getContractPath();
+            if (! File::exists($fullPath)) {
+                return Response::text("Error: Contract not found. Run 'php artisan api:generate-contract'.");
+            }
+
+            return Response::text("Error: Contract file exists but has invalid structure. Please regenerate the contract with 'php artisan api:generate-contract'.");
         }
 
         $routeData = $this->findRouteData($contract, $normalizedPath, $method);
@@ -47,6 +75,12 @@ class DescribeApiRoute extends Tool
         return Response::text(json_encode($routeData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
+    /**
+     * Define the JSON schema for tool arguments.
+     *
+     * @param  JsonSchema  $schema  The schema builder
+     * @return array<string, mixed> Schema definition
+     */
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -61,41 +95,15 @@ class DescribeApiRoute extends Tool
     }
 
     /**
-     * Load contract from cache or file system
+     * Find route data in contract, trying exact match first, then pattern matching.
      *
-     * @return array<string, array>|null
-     */
-    protected function loadContract(): ?array
-    {
-        $cacheKey = 'contract_api';
-
-        if (isset(self::$contractCache[$cacheKey])) {
-            return self::$contractCache[$cacheKey];
-        }
-
-        $fullPath = storage_path('api-contracts/api.json');
-
-        if (! File::exists($fullPath)) {
-            return null;
-        }
-
-        $content = File::get($fullPath);
-        $contract = json_decode($content, true);
-
-        if (! is_array($contract)) {
-            return null;
-        }
-
-        self::$contractCache[$cacheKey] = $contract;
-
-        return $contract;
-    }
-
-    /**
-     * Find route data in contract, trying exact match first, then pattern matching
+     * First attempts an exact path match, then tries pattern matching for
+     * dynamic routes with parameters.
      *
-     * @param  array<string, array>  $contract
-     * @return array<string, mixed>|null
+     * @param  array<string, array<string, array<string, mixed>>>  $contract  The loaded contract
+     * @param  string  $path  The route path to find
+     * @param  string  $method  The HTTP method
+     * @return array<string, mixed>|null Route data or null if not found
      */
     protected function findRouteData(array $contract, string $path, string $method): ?array
     {

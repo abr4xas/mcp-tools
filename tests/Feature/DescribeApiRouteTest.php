@@ -9,11 +9,9 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    // Clear static cache to prevent test pollution
-    $reflection = new ReflectionClass(DescribeApiRoute::class);
-    $property = $reflection->getProperty('contractCache');
-    $property->setAccessible(true);
-    $property->setValue(null, []);
+    // Clear contract cache to prevent test pollution
+    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader;
+    $contractLoader->clearCache();
 });
 
 it('requires path parameter', function () {
@@ -286,4 +284,55 @@ it('includes API version in route data', function () {
     expect($result)->toBeArray()
         ->and($result)->toHaveKey('api_version')
         ->and($result['api_version'])->toBe('v2');
+});
+
+it('handles invalid contract structure gracefully', function () {
+    // Clear cache first to ensure fresh load
+    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader;
+    $contractLoader->clearCache();
+
+    // Delete existing contract and create invalid one
+    $contractPath = storage_path('api-contracts');
+    $contractFile = $contractPath.'/api.json';
+
+    // Delete the valid contract created by beforeEach
+    if (\Illuminate\Support\Facades\File::exists($contractFile)) {
+        \Illuminate\Support\Facades\File::delete($contractFile);
+    }
+
+    // Create contract with invalid structure (missing auth field)
+    $invalidContract = [
+        '/api/v1/posts' => [
+            'GET' => [
+                'api_version' => 'v1',
+                // Missing 'auth' field - this makes it invalid
+            ],
+        ],
+    ];
+
+    \Illuminate\Support\Facades\File::put(
+        $contractFile,
+        json_encode($invalidContract, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+    );
+
+    // The validation happens in loadContract, which is called after path validation
+    // So we need to ensure the contract is loaded. Since loadContract returns null for invalid contracts,
+    // we test that the error message is returned when trying to use the tool.
+    // Note: The path validation happens first, so we need a valid path in the request
+    // The Request constructor expects arguments directly, not nested in 'arguments'
+    $request = new Request([
+        'path' => '/api/v1/posts',
+        'method' => 'GET',
+    ]);
+
+    $response = $this->tool->handle($request);
+    $text = $this->getResponseText($response);
+
+    // When contract is invalid, loadContract returns null, so it should return error about invalid structure
+    // The contract file exists but has invalid structure
+    expect($text)->toContain('invalid structure');
+
+    // Clean up and restore valid contract for other tests
+    \Illuminate\Support\Facades\File::delete($contractFile);
+    $this->createSampleContract();
 });
