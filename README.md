@@ -166,7 +166,7 @@ return [
         DescribeApiRoute::class,
         // ... your other MCP tools
     ],
-    
+
     // Other MCP server configuration...
 ];
 ```
