@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Abr4xas\McpTools\Tools;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -35,7 +36,7 @@ class DescribeApiRoute extends Tool
 
         $contract = $this->loadContract();
         if ($contract === null) {
-            $fullPath = storage_path('api-contracts/api.json');
+            $fullPath = Config::get('mcp-tools.contract_path', storage_path('api-contracts/api.json'));
             if (! File::exists($fullPath)) {
                 return Response::text("Error: Contract not found. Run 'php artisan api:generate-contract'.");
             }
@@ -78,7 +79,7 @@ class DescribeApiRoute extends Tool
             return self::$contractCache[$cacheKey];
         }
 
-        $fullPath = storage_path('api-contracts/api.json');
+        $fullPath = Config::get('mcp-tools.contract_path', storage_path('api-contracts/api.json'));
 
         if (! File::exists($fullPath)) {
             return null;

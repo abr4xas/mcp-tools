@@ -17,6 +17,7 @@ class McpToolsServiceProvider extends PackageServiceProvider
          */
         $package
             ->name('mcp-tools')
-            ->hasCommand(GenerateApiContractCommand::class);
+            ->hasCommand(GenerateApiContractCommand::class)
+            ->hasConfigFile();
     }
 }

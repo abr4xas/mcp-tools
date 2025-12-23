@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -99,12 +100,12 @@ class GenerateApiContractCommand extends Command
             }
         }
 
-        $directory = storage_path('api-contracts');
+        $fullPath = $this->getContractPath();
+        $directory = dirname($fullPath);
+        
         if (! File::exists($directory)) {
             File::makeDirectory($directory, 0755, true);
         }
-
-        $fullPath = "{$directory}/api.json";
         $json = json_encode($contract, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 
         if ($json === false) {
@@ -382,12 +383,13 @@ class GenerateApiContractCommand extends Command
         $resourceName = Str::singular($resourceName); // Intelligent singularization
         $resourceName = ucfirst($resourceName);
 
+        $resourcesNamespace = $this->getResourcesNamespace();
         $candidates = [
-            "App\\Http\\Resources\\{$resourceName}Resource",
-            "App\\Http\\Resources\\{$resourceName}OverviewResource",
-            "App\\Http\\Resources\\{$resourceName}Collection",
-            'App\\Http\\Resources\\' . ucfirst($resourceName) . 'Resource',
-            'App\\Http\\Resources\\Posts\\' . ucfirst($resourceName) . 'Resource', // Heuristic folder
+            "{$resourcesNamespace}\\{$resourceName}Resource",
+            "{$resourcesNamespace}\\{$resourceName}OverviewResource",
+            "{$resourcesNamespace}\\{$resourceName}Collection",
+            "{$resourcesNamespace}\\" . ucfirst($resourceName) . 'Resource',
+            "{$resourcesNamespace}\\Posts\\" . ucfirst($resourceName) . 'Resource', // Heuristic folder
         ];
 
         // Use pre-loaded matching
@@ -414,7 +416,7 @@ class GenerateApiContractCommand extends Command
 
     private function preloadResources(): void
     {
-        $basePath = app_path('Http/Resources');
+        $basePath = $this->getResourcesPath();
         if (File::exists($basePath)) {
             $files = File::allFiles($basePath);
             foreach ($files as $file) {
@@ -442,10 +444,9 @@ class GenerateApiContractCommand extends Command
                 return null;
             }
 
-            // Look for "use App\Http\Resources\...\SomeResource;" using a somewhat loose regex
-            // or "new SomeResource"
-            // Let's grab all "use App\Http\Resources\..." statements
-            preg_match_all('/use (App\\\Http\\\Resources\\\.*);/', $content, $matches);
+            // Look for use statements for Resources
+            $resourcesNamespace = preg_quote($this->getResourcesNamespace(), '/');
+            preg_match_all("/use ({$resourcesNamespace}\\\\.*);/", $content, $matches);
             if ($matches[1] !== []) {
                 // If there's a Collection, prefer it for Index logic? Or just try all.
                 // Logic: if class name contains Index, prioritize Collection
@@ -482,9 +483,9 @@ class GenerateApiContractCommand extends Command
     private function getClassNameFromFile($fileItem): string
     {
         $path = $fileItem->getPath();
-        $base = app_path('Http/Resources');
+        $base = $this->getResourcesPath();
         $relative = mb_trim(str_replace($base, '', $path), DIRECTORY_SEPARATOR);
-        $namespace = 'App\\Http\\Resources';
+        $namespace = $this->getResourcesNamespace();
         if ($relative !== '' && $relative !== '0') {
             $namespace .= '\\' . str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
         }
@@ -504,7 +505,8 @@ class GenerateApiContractCommand extends Command
         // PostCollection -> Post
         // PostResource -> Post
         $modelName = str_replace(['Resource', 'Overview', 'Collection'], '', $basics);
-        $modelClass = "App\\Models\\{$modelName}";
+        $modelsNamespace = $this->getModelsNamespace();
+        $modelClass = "{$modelsNamespace}\\{$modelName}";
 
         if (! class_exists($modelClass)) {
             $result = ['undocumented' => true];
@@ -635,13 +637,14 @@ class GenerateApiContractCommand extends Command
                     return $fullClass;
                 }
                 // Try common namespaces
+                $resourcesNamespace = $this->getResourcesNamespace();
                 $commonPaths = [
-                    "App\\Http\\Resources\\{$resourceName}",
-                    "App\\Http\\Resources\\Cards\\{$resourceName}",
-                    "App\\Http\\Resources\\Users\\{$resourceName}",
-                    "App\\Http\\Resources\\Companies\\{$resourceName}",
-                    "App\\Http\\Resources\\ServiceCompanies\\{$resourceName}",
-                    "App\\Http\\Resources\\Invest\\{$resourceName}",
+                    "{$resourcesNamespace}\\{$resourceName}",
+                    "{$resourcesNamespace}\\Cards\\{$resourceName}",
+                    "{$resourcesNamespace}\\Users\\{$resourceName}",
+                    "{$resourcesNamespace}\\Companies\\{$resourceName}",
+                    "{$resourcesNamespace}\\ServiceCompanies\\{$resourceName}",
+                    "{$resourcesNamespace}\\Invest\\{$resourceName}",
                 ];
                 foreach ($commonPaths as $path) {
                     if (class_exists($path)) {
@@ -722,14 +725,12 @@ class GenerateApiContractCommand extends Command
             }
 
             // Look for use statements - match the full line
-            // Pattern: use App\Http\Resources\CardResource;
-            // Pattern: use App\Http\Resources\Cards\CardResource;
+            $resourcesNamespace = preg_quote($this->getResourcesNamespace(), '/');
             if (preg_match('/use\s+([^;]+' . preg_quote($shortName, '/') . ')\s*;/', $content, $matches)) {
                 return mb_trim($matches[1]);
             }
 
             // Look for use statements with as alias
-            // Pattern: use App\Http\Resources\Cards\CardResource as CardResource;
             if (preg_match('/use\s+([^;]+)\s+as\s+' . preg_quote($shortName, '/') . '\s*;/', $content, $matches)) {
                 return mb_trim($matches[1]);
             }
@@ -865,5 +866,37 @@ class GenerateApiContractCommand extends Command
         } else {
             $this->info('Contract generation completed successfully with no warnings or errors.');
         }
+    }
+
+    /**
+     * Get the contract file path from configuration
+     */
+    protected function getContractPath(): string
+    {
+        return Config::get('mcp-tools.contract_path', storage_path('api-contracts/api.json'));
+    }
+
+    /**
+     * Get the resources directory path from configuration
+     */
+    protected function getResourcesPath(): string
+    {
+        return Config::get('mcp-tools.resources_path', app_path('Http/Resources'));
+    }
+
+    /**
+     * Get the resources namespace from configuration
+     */
+    protected function getResourcesNamespace(): string
+    {
+        return Config::get('mcp-tools.resources_namespace', 'App\\Http\\Resources');
+    }
+
+    /**
+     * Get the models namespace from configuration
+     */
+    protected function getModelsNamespace(): string
+    {
+        return Config::get('mcp-tools.models_namespace', 'App\\Models');
     }
 }
