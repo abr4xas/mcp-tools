@@ -17,8 +17,6 @@ use Laravel\Mcp\Server\Tool;
  *
  * MCP tool that provides detailed information about a specific API route,
  * including authentication, schemas, and metadata.
- *
- * @package Abr4xas\McpTools\Tools
  */
 class DescribeApiRoute extends Tool
 {
@@ -29,17 +27,17 @@ class DescribeApiRoute extends Tool
     /**
      * Create a new DescribeApiRoute instance.
      *
-     * @param ContractLoaderInterface|null $contractLoader Optional contract loader instance
+     * @param  ContractLoaderInterface|null  $contractLoader  Optional contract loader instance
      */
     public function __construct(?ContractLoaderInterface $contractLoader = null)
     {
-        $this->contractLoader = $contractLoader ?? new ContractLoader();
+        $this->contractLoader = $contractLoader ?? new ContractLoader;
     }
 
     /**
      * Handle the MCP tool request.
      *
-     * @param Request $request The MCP request with path and method
+     * @param  Request  $request  The MCP request with path and method
      * @return Response JSON response with route details or error message
      */
     public function handle(Request $request): Response
@@ -56,7 +54,7 @@ class DescribeApiRoute extends Tool
         }
 
         // Normalize path: ensure leading slash
-        $normalizedPath = '/' . mb_ltrim($path, '/');
+        $normalizedPath = '/'.mb_ltrim($path, '/');
 
         $contract = $this->contractLoader->load();
         if ($contract === null) {
@@ -80,7 +78,7 @@ class DescribeApiRoute extends Tool
     /**
      * Define the JSON schema for tool arguments.
      *
-     * @param JsonSchema $schema The schema builder
+     * @param  JsonSchema  $schema  The schema builder
      * @return array<string, mixed> Schema definition
      */
     public function schema(JsonSchema $schema): array
@@ -96,16 +94,15 @@ class DescribeApiRoute extends Tool
         ];
     }
 
-
     /**
      * Find route data in contract, trying exact match first, then pattern matching.
      *
      * First attempts an exact path match, then tries pattern matching for
      * dynamic routes with parameters.
      *
-     * @param array<string, array<string, array<string, mixed>>> $contract The loaded contract
-     * @param string $path The route path to find
-     * @param string $method The HTTP method
+     * @param  array<string, array<string, array<string, mixed>>>  $contract  The loaded contract
+     * @param  string  $path  The route path to find
+     * @param  string  $method  The HTTP method
      * @return array<string, mixed>|null Route data or null if not found
      */
     protected function findRouteData(array $contract, string $path, string $method): ?array
@@ -158,6 +155,6 @@ class DescribeApiRoute extends Tool
         // Handle case where {param} might be at start or have no leading slash in pattern?
         // Usually /api/v1/posts/{post} -> /api/v1/posts/[^/]+
 
-        return (bool) preg_match('#^' . $escaped . '$#', $path);
+        return (bool) preg_match('#^'.$escaped.'$#', $path);
     }
 }

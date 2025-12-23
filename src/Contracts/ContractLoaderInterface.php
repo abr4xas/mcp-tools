@@ -6,8 +6,6 @@ namespace Abr4xas\McpTools\Contracts;
 
 /**
  * Contract Loader Interface
- *
- * @package Abr4xas\McpTools\Contracts
  */
 interface ContractLoaderInterface
 {

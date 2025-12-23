@@ -17,8 +17,6 @@ use Laravel\Mcp\Server\Tool;
  *
  * MCP tool that lists all available API routes with filtering,
  * pagination, and optional metadata inclusion.
- *
- * @package Abr4xas\McpTools\Tools
  */
 class ListApiRoutes extends Tool
 {
@@ -31,17 +29,17 @@ class ListApiRoutes extends Tool
     /**
      * Create a new ListApiRoutes instance.
      *
-     * @param ContractLoaderInterface|null $contractLoader Optional contract loader instance
+     * @param  ContractLoaderInterface|null  $contractLoader  Optional contract loader instance
      */
     public function __construct(?ContractLoaderInterface $contractLoader = null)
     {
-        $this->contractLoader = $contractLoader ?? new ContractLoader();
+        $this->contractLoader = $contractLoader ?? new ContractLoader;
     }
 
     /**
      * Handle the MCP tool request.
      *
-     * @param Request $request The MCP request with filters and pagination
+     * @param  Request  $request  The MCP request with filters and pagination
      * @return Response JSON response with routes and pagination info
      */
     public function handle(Request $request): Response
@@ -113,7 +111,7 @@ class ListApiRoutes extends Tool
         }
 
         // Sort by path
-        usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+        usort($routes, fn (array $a, array $b): int => strcmp($a['path'], $b['path']));
 
         $total = count($routes);
         $totalPages = (int) ceil($total / $limit);
@@ -137,7 +135,7 @@ class ListApiRoutes extends Tool
     /**
      * Define the JSON schema for tool arguments.
      *
-     * @param JsonSchema $schema The schema builder
+     * @param  JsonSchema  $schema  The schema builder
      * @return array<string, mixed> Schema definition
      */
     public function schema(JsonSchema $schema): array
@@ -165,16 +163,15 @@ class ListApiRoutes extends Tool
         ];
     }
 
-
     /**
      * Check if route matches search term.
      *
      * Searches across multiple fields: path, path parameters, API version,
      * auth type, request/response schema fields, and rate limit names.
      *
-     * @param string $path The route path
-     * @param array<string, mixed> $routeData The route data from contract
-     * @param string $search The search term
+     * @param  string  $path  The route path
+     * @param  array<string, mixed>  $routeData  The route data from contract
+     * @param  string  $search  The search term
      * @return bool True if route matches search term
      */
     protected function matchesSearch(string $path, array $routeData, string $search): bool

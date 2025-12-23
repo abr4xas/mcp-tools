@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Route;
 
 it('generates contract using mocked analyzers', function () {
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/test', fn() => response()->json([]));
+        Route::get('/test', fn () => response()->json([]));
     });
 
     $routeAnalyzer = Mockery::mock(RouteAnalyzerInterface::class);
@@ -59,7 +59,7 @@ it('generates contract using mocked analyzers', function () {
 
 it('handles errors from analyzers gracefully', function () {
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/test', fn() => response()->json([]));
+        Route::get('/test', fn () => response()->json([]));
     });
 
     $routeAnalyzer = Mockery::mock(RouteAnalyzerInterface::class);
@@ -88,7 +88,7 @@ it('handles errors from analyzers gracefully', function () {
 
 it('returns failure code when strict mode is enabled and errors occur', function () {
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/test', fn() => response()->json([]));
+        Route::get('/test', fn () => response()->json([]));
     });
 
     $routeAnalyzer = Mockery::mock(RouteAnalyzerInterface::class);
@@ -103,6 +103,7 @@ it('returns failure code when strict mode is enabled and errors occur', function
     $formRequestAnalyzer->shouldReceive('extractRequestSchema')
         ->andReturnUsing(function ($action, $isQuery, $onError) {
             $onError('Test error', 'Test suggestion');
+
             return ['location' => 'unknown', 'properties' => [], 'error' => 'Could not instantiate FormRequest'];
         });
 
@@ -121,7 +122,7 @@ it('returns failure code when strict mode is enabled and errors occur', function
 
 it('calls preloadResources on resource analyzer', function () {
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/test', fn() => response()->json([]));
+        Route::get('/test', fn () => response()->json([]));
     });
 
     $routeAnalyzer = Mockery::mock(RouteAnalyzerInterface::class);

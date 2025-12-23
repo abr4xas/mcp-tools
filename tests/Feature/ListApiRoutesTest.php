@@ -4,13 +4,13 @@ use Abr4xas\McpTools\Tools\ListApiRoutes;
 use Laravel\Mcp\Request;
 
 beforeEach(function () {
-    $this->tool = new ListApiRoutes();
+    $this->tool = new ListApiRoutes;
     $this->createSampleContract();
 });
 
 afterEach(function () {
     // Clear contract cache to prevent test pollution
-    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader();
+    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader;
     $contractLoader->clearCache();
 });
 
@@ -144,7 +144,7 @@ it('handles invalid contract structure gracefully', function () {
     ];
 
     \Illuminate\Support\Facades\File::put(
-        $contractPath . '/api.json',
+        $contractPath.'/api.json',
         json_encode($invalidContract, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
     );
 
@@ -156,7 +156,7 @@ it('handles invalid contract structure gracefully', function () {
     expect($text)->toContain('invalid structure');
 
     // Clean up
-    \Illuminate\Support\Facades\File::delete($contractPath . '/api.json');
+    \Illuminate\Support\Facades\File::delete($contractPath.'/api.json');
 });
 
 it('handles contract with invalid path_parameters type', function () {
@@ -174,7 +174,7 @@ it('handles contract with invalid path_parameters type', function () {
     ];
 
     \Illuminate\Support\Facades\File::put(
-        $contractPath . '/api.json',
+        $contractPath.'/api.json',
         json_encode($invalidContract, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
     );
 
@@ -186,5 +186,5 @@ it('handles contract with invalid path_parameters type', function () {
     expect($text)->toContain('invalid structure');
 
     // Clean up
-    \Illuminate\Support\Facades\File::delete($contractPath . '/api.json');
+    \Illuminate\Support\Facades\File::delete($contractPath.'/api.json');
 });

@@ -14,8 +14,8 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use PhpParser\Node;
 use PhpParser\Node\Expr\MethodCall;
-use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Expr\New_;
+use PhpParser\Node\Expr\StaticCall;
 use PhpParser\Node\Name;
 use PhpParser\NodeFinder;
 use PhpParser\ParserFactory;
@@ -29,8 +29,6 @@ use Throwable;
  *
  * Analyzes Laravel Resource classes to extract response schemas.
  * Handles Resource discovery, simulation, and schema generation.
- *
- * @package Abr4xas\McpTools\Analyzers
  */
 class ResourceAnalyzer implements ResourceAnalyzerInterface
 {
@@ -72,10 +70,10 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Extract response schema from Resource classes or method return types.
      *
-     * @param string|object|null $action The route action
-     * @param string $uri The route URI
-     * @param ReflectionMethod|null $reflection Optional reflection method
-     * @param callable(string, string): void $onError Error handler callback
+     * @param  string|object|null  $action  The route action
+     * @param  string  $uri  The route URI
+     * @param  ReflectionMethod|null  $reflection  Optional reflection method
+     * @param  callable(string, string): void  $onError  Error handler callback
      * @return array<string, mixed> Response schema
      */
     public function extractResponseSchema($action, string $uri, ?ReflectionMethod $reflection, callable $onError): array
@@ -89,6 +87,7 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
                     $reflection = new ReflectionMethod($controller, $controllerMethod);
                 } catch (Throwable $e) {
                     $onError("Could not reflect method {$cacheKey}", "Method {$cacheKey} may not exist or may not be accessible.");
+
                     return $this->fallbackToHeuristic($uri);
                 }
             }
@@ -147,7 +146,7 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Fallback to heuristic strategy when direct analysis fails.
      *
-     * @param string $uri The route URI
+     * @param  string  $uri  The route URI
      * @return array<string, mixed> Response schema
      */
     protected function fallbackToHeuristic(string $uri): array
@@ -169,8 +168,8 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
             "{$this->resourcesNamespace}\\{$resourceName}Resource",
             "{$this->resourcesNamespace}\\{$resourceName}OverviewResource",
             "{$this->resourcesNamespace}\\{$resourceName}Collection",
-            "{$this->resourcesNamespace}\\" . ucfirst($resourceName) . 'Resource',
-            "{$this->resourcesNamespace}\\Posts\\" . ucfirst($resourceName) . 'Resource',
+            "{$this->resourcesNamespace}\\".ucfirst($resourceName).'Resource',
+            "{$this->resourcesNamespace}\\Posts\\".ucfirst($resourceName).'Resource',
         ];
 
         // Use pre-loaded matching
@@ -198,8 +197,8 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Simulate resource output to generate schema.
      *
-     * @param string $resourceClass The resource class name
-     * @param callable(string, string): void $onError Error handler callback
+     * @param  string  $resourceClass  The resource class name
+     * @param  callable(string, string): void  $onError  Error handler callback
      * @return array<string, mixed> Resource schema
      */
     public function simulateResourceOutput(string $resourceClass, callable $onError): array
@@ -271,7 +270,7 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Convert data array to schema format.
      *
-     * @param array<string, mixed> $data The data to convert
+     * @param  array<string, mixed>  $data  The data to convert
      * @return array<string, mixed> Schema representation
      */
     protected function dataToSchema(array $data): array
@@ -301,8 +300,8 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Extract Resource class name from method body using AST analysis.
      *
-     * @param ReflectionMethod $reflection The method reflection
-     * @param callable(string, string): void $onError Error handler callback
+     * @param  ReflectionMethod  $reflection  The method reflection
+     * @param  callable(string, string): void  $onError  Error handler callback
      * @return string|null Resource class name or null
      */
     protected function extractResourceFromMethodBody(ReflectionMethod $reflection, callable $onError): ?string
@@ -339,7 +338,7 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
 
             return $resourceClass;
         } catch (Throwable $e) {
-            $onError("Could not extract resource from method body", "Unable to analyze method body for resource extraction using AST. Error: {$e->getMessage()}");
+            $onError('Could not extract resource from method body', "Unable to analyze method body for resource extraction using AST. Error: {$e->getMessage()}");
         }
 
         return null;
@@ -348,9 +347,9 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Find the method node in the AST.
      *
-     * @param array<Node> $ast The AST nodes
-     * @param string $methodName The method name to find
-     * @param NodeFinder $nodeFinder The node finder instance
+     * @param  array<Node>  $ast  The AST nodes
+     * @param  string  $methodName  The method name to find
+     * @param  NodeFinder  $nodeFinder  The node finder instance
      * @return Node\Stmt\ClassMethod|null The method node or null
      */
     protected function findMethodNode(array $ast, string $methodName, NodeFinder $nodeFinder): ?Node\Stmt\ClassMethod
@@ -369,9 +368,9 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Find Resource class usage in method node.
      *
-     * @param Node\Stmt\ClassMethod $methodNode The method node
-     * @param NodeFinder $nodeFinder The node finder instance
-     * @param ReflectionMethod $reflection The method reflection
+     * @param  Node\Stmt\ClassMethod  $methodNode  The method node
+     * @param  NodeFinder  $nodeFinder  The node finder instance
+     * @param  ReflectionMethod  $reflection  The method reflection
      * @return string|null Resource class name or null
      */
     protected function findResourceInMethodNode(Node\Stmt\ClassMethod $methodNode, NodeFinder $nodeFinder, ReflectionMethod $reflection): ?string
@@ -443,8 +442,8 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Find Resource class in method/function arguments.
      *
-     * @param array<Node\Arg> $args The arguments
-     * @param ReflectionMethod $reflection The method reflection
+     * @param  array<Node\Arg>  $args  The arguments
+     * @param  ReflectionMethod  $reflection  The method reflection
      * @return string|null Resource class name or null
      */
     protected function findResourceInArguments(array $args, ReflectionMethod $reflection): ?string
@@ -483,8 +482,8 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Resolve class name to full namespace using use statements.
      *
-     * @param string $shortName The short class name
-     * @param ReflectionMethod $reflection The method reflection
+     * @param  string  $shortName  The short class name
+     * @param  ReflectionMethod  $reflection  The method reflection
      * @return string|null Full class name or null
      */
     protected function resolveClassName(string $shortName, ReflectionMethod $reflection): ?string
@@ -517,8 +516,8 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Find full class name from use statements in the file.
      *
-     * @param ReflectionMethod $reflection The method reflection
-     * @param string $shortName The short class name
+     * @param  ReflectionMethod  $reflection  The method reflection
+     * @param  string  $shortName  The short class name
      * @return string|null Full class name or null
      */
     protected function findFullClassName(ReflectionMethod $reflection, string $shortName): ?string
@@ -536,12 +535,12 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
 
             // Look for use statements
             $resourcesNamespace = preg_quote($this->resourcesNamespace, '/');
-            if (preg_match('/use\s+([^;]+' . preg_quote($shortName, '/') . ')\s*;/', $content, $matches)) {
+            if (preg_match('/use\s+([^;]+'.preg_quote($shortName, '/').')\s*;/', $content, $matches)) {
                 return mb_trim($matches[1]);
             }
 
             // Look for use statements with as alias
-            if (preg_match('/use\s+([^;]+)\s+as\s+' . preg_quote($shortName, '/') . '\s*;/', $content, $matches)) {
+            if (preg_match('/use\s+([^;]+)\s+as\s+'.preg_quote($shortName, '/').'\s*;/', $content, $matches)) {
                 return mb_trim($matches[1]);
             }
 
@@ -561,8 +560,8 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Inspect response class for Resource usage.
      *
-     * @param string $responseClass The response class name
-     * @param callable(string, string): void $onError Error handler callback
+     * @param  string  $responseClass  The response class name
+     * @param  callable(string, string): void  $onError  Error handler callback
      * @return string|null Resource class name or null
      */
     protected function inspectResponseClass(string $responseClass, callable $onError): ?string
@@ -614,7 +613,7 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     /**
      * Get class name from file path.
      *
-     * @param \Illuminate\Filesystem\Filesystem|\SplFileInfo $fileItem The file item
+     * @param  \Illuminate\Filesystem\Filesystem|\SplFileInfo  $fileItem  The file item
      * @return string Full class name
      */
     protected function getClassNameFromFile($fileItem): string
@@ -624,9 +623,9 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
         $relative = mb_trim(str_replace($base, '', $path), DIRECTORY_SEPARATOR);
         $namespace = $this->resourcesNamespace;
         if ($relative !== '' && $relative !== '0') {
-            $namespace .= '\\' . str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
+            $namespace .= '\\'.str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
         }
 
-        return $namespace . '\\' . $fileItem->getFilenameWithoutExtension();
+        return $namespace.'\\'.$fileItem->getFilenameWithoutExtension();
     }
 }
