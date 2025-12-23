@@ -32,8 +32,8 @@ it('command creates JSON file with valid structure', function () {
 
 it('extracts path parameters from routes', function () {
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/users/{user}', fn() => response()->json([]));
-        Route::get('/posts/{post}/comments/{comment}', fn() => response()->json([]));
+        Route::get('/users/{user}', fn () => response()->json([]));
+        Route::get('/posts/{post}/comments/{comment}', fn () => response()->json([]));
     });
 
     $this->artisan(GenerateApiContractCommand::class);
@@ -49,7 +49,7 @@ it('extracts path parameters from routes', function () {
 
 it('extracts optional path parameters', function () {
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/users/{user?}', fn() => response()->json([]));
+        Route::get('/users/{user?}', fn () => response()->json([]));
     });
 
     $this->artisan(GenerateApiContractCommand::class);
@@ -63,11 +63,11 @@ it('extracts optional path parameters', function () {
 
 it('determines authentication type from middleware', function () {
     Route::group(['prefix' => 'api/v1', 'middleware' => 'auth:sanctum'], function () {
-        Route::get('/protected', fn() => response()->json([]));
+        Route::get('/protected', fn () => response()->json([]));
     });
 
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/public', fn() => response()->json([]));
+        Route::get('/public', fn () => response()->json([]));
     });
 
     $this->artisan(GenerateApiContractCommand::class);
@@ -81,7 +81,7 @@ it('determines authentication type from middleware', function () {
 
 it('extracts rate limit information from throttle middleware', function () {
     Route::group(['prefix' => 'api/v1', 'middleware' => 'throttle:api'], function () {
-        Route::get('/limited', fn() => response()->json([]));
+        Route::get('/limited', fn () => response()->json([]));
     });
 
     $this->artisan(GenerateApiContractCommand::class);
@@ -97,11 +97,11 @@ it('extracts rate limit information from throttle middleware', function () {
 
 it('extracts API version from route path', function () {
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/v1-endpoint', fn() => response()->json([]));
+        Route::get('/v1-endpoint', fn () => response()->json([]));
     });
 
     Route::group(['prefix' => 'api/v2'], function () {
-        Route::get('/v2-endpoint', fn() => response()->json([]));
+        Route::get('/v2-endpoint', fn () => response()->json([]));
     });
 
     $this->artisan(GenerateApiContractCommand::class);
@@ -156,10 +156,10 @@ class TestFormRequest extends FormRequest
 PHP;
         $directory = app_path('Http/Requests');
         File::ensureDirectoryExists($directory);
-        File::put($directory . '/TestFormRequest.php', $formRequestCode);
+        File::put($directory.'/TestFormRequest.php', $formRequestCode);
     }
 
-    Route::group(['prefix' => 'api/v1'], function () use ($formRequestClass) {
+    Route::group(['prefix' => 'api/v1'], function () {
         Route::post('/users', function ($request) {
             return response()->json([]);
         });
@@ -176,7 +176,7 @@ PHP;
 
 it('handles routes without FormRequest gracefully', function () {
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::post('/simple', fn() => response()->json([]));
+        Route::post('/simple', fn () => response()->json([]));
     });
 
     $this->artisan(GenerateApiContractCommand::class)
@@ -191,7 +191,7 @@ it('handles routes without FormRequest gracefully', function () {
 
 it('skips HEAD method routes', function () {
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::match(['GET', 'HEAD'], '/test', fn() => response()->json([]));
+        Route::match(['GET', 'HEAD'], '/test', fn () => response()->json([]));
     });
 
     $this->artisan(GenerateApiContractCommand::class);
@@ -204,9 +204,9 @@ it('skips HEAD method routes', function () {
 });
 
 it('only processes routes starting with api/', function () {
-    Route::get('/web-route', fn() => response()->json([]));
+    Route::get('/web-route', fn () => response()->json([]));
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/api-route', fn() => response()->json([]));
+        Route::get('/api-route', fn () => response()->json([]));
     });
 
     $this->artisan(GenerateApiContractCommand::class);
@@ -227,12 +227,12 @@ it('creates storage directory if it does not exist', function () {
     }
 
     Route::group(['prefix' => 'api/v1'], function () {
-        Route::get('/test', fn() => response()->json([]));
+        Route::get('/test', fn () => response()->json([]));
     });
 
     $this->artisan(GenerateApiContractCommand::class)
         ->assertSuccessful();
 
     expect(File::exists($directory))->toBeTrue()
-        ->and(File::exists($directory . '/api.json'))->toBeTrue();
+        ->and(File::exists($directory.'/api.json'))->toBeTrue();
 });

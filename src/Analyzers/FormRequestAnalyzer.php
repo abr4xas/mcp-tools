@@ -17,8 +17,6 @@ use Throwable;
  *
  * Analyzes FormRequest classes to extract validation rules and convert them
  * to request schemas for API contracts.
- *
- * @package Abr4xas\McpTools\Analyzers
  */
 class FormRequestAnalyzer implements FormRequestAnalyzerInterface
 {
@@ -28,9 +26,9 @@ class FormRequestAnalyzer implements FormRequestAnalyzerInterface
     /**
      * Extract request schema from FormRequest or method parameters.
      *
-     * @param string|object|null $action The route action
-     * @param bool $isQuery Whether this is a query parameter request
-     * @param callable(string, string): void $onError Error handler callback
+     * @param  string|object|null  $action  The route action
+     * @param  bool  $isQuery  Whether this is a query parameter request
+     * @param  callable(string, string): void  $onError  Error handler callback
      * @return array<string, mixed> Request schema
      */
     public function extractRequestSchema($action, bool $isQuery, callable $onError): array
@@ -50,7 +48,7 @@ class FormRequestAnalyzer implements FormRequestAnalyzerInterface
                     $class = $type->getName();
                     if (class_exists($class) && is_subclass_of($class, FormRequest::class)) {
                         try {
-                            $formRequest = new $class();
+                            $formRequest = new $class;
                             if (method_exists($formRequest, 'rules')) {
                                 $rules = $formRequest->rules();
                                 $parsed = $this->parseValidationRules($rules);
@@ -94,9 +92,9 @@ class FormRequestAnalyzer implements FormRequestAnalyzerInterface
     /**
      * Get reflection method with caching.
      *
-     * @param string $controller Controller class name
-     * @param string $method Method name
-     * @param string $cacheKey Cache key
+     * @param  string  $controller  Controller class name
+     * @param  string  $method  Method name
+     * @param  string  $cacheKey  Cache key
      * @return ReflectionMethod The reflection method
      */
     protected function getReflectionMethod(string $controller, string $method, string $cacheKey): ReflectionMethod
@@ -111,7 +109,7 @@ class FormRequestAnalyzer implements FormRequestAnalyzerInterface
     /**
      * Parse Laravel validation rules into schema format.
      *
-     * @param array<string, string|array> $rules Validation rules
+     * @param  array<string, string|array>  $rules  Validation rules
      * @return array<string, array{type: string, required: bool, constraints: array<int, string>}> Parsed schema
      */
     protected function parseValidationRules(array $rules): array
@@ -122,7 +120,7 @@ class FormRequestAnalyzer implements FormRequestAnalyzerInterface
             if (Str::contains($field, '.')) {
                 $parts = explode('.', (string) $field);
                 $root = array_shift($parts);
-                $transformedField = $root . '[' . implode('][', $parts) . ']';
+                $transformedField = $root.'['.implode('][', $parts).']';
             } else {
                 $transformedField = (string) $field;
             }
@@ -165,7 +163,7 @@ class FormRequestAnalyzer implements FormRequestAnalyzerInterface
                 } elseif (Str::startsWith($part, 'max:')) {
                     $constraints[] = $part;
                 } elseif (Str::startsWith($part, 'in:')) {
-                    $constraints[] = 'enum: ' . mb_substr($part, 3);
+                    $constraints[] = 'enum: '.mb_substr($part, 3);
                 } elseif (Str::startsWith($part, 'regex:')) {
                     $constraints[] = $part;
                 } elseif (Str::startsWith($part, 'exists:')) {

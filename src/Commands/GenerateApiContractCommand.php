@@ -2,7 +2,6 @@
 
 namespace Abr4xas\McpTools\Commands;
 
-
 use Abr4xas\McpTools\Contracts\FormRequestAnalyzerInterface;
 use Abr4xas\McpTools\Contracts\ResourceAnalyzerInterface;
 use Abr4xas\McpTools\Contracts\RouteAnalyzerInterface;
@@ -18,8 +17,6 @@ use ReflectionMethod;
  *
  * Scans Laravel routes and generates a comprehensive JSON contract describing
  * all API endpoints, including authentication, request/response schemas, and metadata.
- *
- * @package Abr4xas\McpTools\Commands
  */
 class GenerateApiContractCommand extends Command
 {
@@ -44,9 +41,9 @@ class GenerateApiContractCommand extends Command
     /**
      * Create a new command instance.
      *
-     * @param RouteAnalyzerInterface|null $routeAnalyzer Optional route analyzer
-     * @param FormRequestAnalyzerInterface|null $formRequestAnalyzer Optional form request analyzer
-     * @param ResourceAnalyzerInterface|null $resourceAnalyzer Optional resource analyzer
+     * @param  RouteAnalyzerInterface|null  $routeAnalyzer  Optional route analyzer
+     * @param  FormRequestAnalyzerInterface|null  $formRequestAnalyzer  Optional form request analyzer
+     * @param  ResourceAnalyzerInterface|null  $resourceAnalyzer  Optional resource analyzer
      */
     public function __construct(
         ?RouteAnalyzerInterface $routeAnalyzer = null,
@@ -54,9 +51,9 @@ class GenerateApiContractCommand extends Command
         ?ResourceAnalyzerInterface $resourceAnalyzer = null
     ) {
         parent::__construct();
-        $this->routeAnalyzer = $routeAnalyzer ?? new \Abr4xas\McpTools\Analyzers\RouteAnalyzer();
-        $this->formRequestAnalyzer = $formRequestAnalyzer ?? new \Abr4xas\McpTools\Analyzers\FormRequestAnalyzer();
-        $this->resourceAnalyzer = $resourceAnalyzer ?? new \Abr4xas\McpTools\Analyzers\ResourceAnalyzer();
+        $this->routeAnalyzer = $routeAnalyzer ?? new \Abr4xas\McpTools\Analyzers\RouteAnalyzer;
+        $this->formRequestAnalyzer = $formRequestAnalyzer ?? new \Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
+        $this->resourceAnalyzer = $resourceAnalyzer ?? new \Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
     }
 
     /**
@@ -85,7 +82,7 @@ class GenerateApiContractCommand extends Command
                 continue;
             }
 
-            $normalizedUri = '/' . mb_ltrim($uri, '/');
+            $normalizedUri = '/'.mb_ltrim($uri, '/');
             $methods = $route->methods();
             $action = $route->getAction('uses');
 
@@ -108,7 +105,7 @@ class GenerateApiContractCommand extends Command
                 $requestSchema = $this->formRequestAnalyzer->extractRequestSchema(
                     $action,
                     $isQuery,
-                    fn($msg, $suggestion = '') => $this->handleError($msg, $suggestion)
+                    fn ($msg, $suggestion = '') => $this->handleError($msg, $suggestion)
                 );
 
                 // Get reflection method for response schema analysis
@@ -126,7 +123,7 @@ class GenerateApiContractCommand extends Command
                     $action,
                     $normalizedUri,
                     $reflection,
-                    fn($msg, $suggestion = '') => $this->handleError($msg, $suggestion)
+                    fn ($msg, $suggestion = '') => $this->handleError($msg, $suggestion)
                 );
 
                 $contract[$normalizedUri][$method] = [
@@ -154,7 +151,7 @@ class GenerateApiContractCommand extends Command
         $json = json_encode($contract, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 
         if ($json === false) {
-            $errorMsg = 'Failed to encode contract to JSON. Error: ' . json_last_error_msg();
+            $errorMsg = 'Failed to encode contract to JSON. Error: '.json_last_error_msg();
             $this->error($errorMsg);
             $this->errorCount++;
 

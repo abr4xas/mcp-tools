@@ -10,7 +10,7 @@ beforeEach(function () {
 
 afterEach(function () {
     // Clear contract cache to prevent test pollution
-    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader();
+    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader;
     $contractLoader->clearCache();
 });
 
@@ -288,12 +288,12 @@ it('includes API version in route data', function () {
 
 it('handles invalid contract structure gracefully', function () {
     // Clear cache first to ensure fresh load
-    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader();
+    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader;
     $contractLoader->clearCache();
 
     // Delete existing contract and create invalid one
     $contractPath = storage_path('api-contracts');
-    $contractFile = $contractPath . '/api.json';
+    $contractFile = $contractPath.'/api.json';
 
     // Delete the valid contract created by beforeEach
     if (\Illuminate\Support\Facades\File::exists($contractFile)) {

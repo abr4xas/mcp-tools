@@ -14,8 +14,6 @@ use Illuminate\Support\Facades\File;
  * Loads and validates API contracts from the file system.
  * Provides caching to avoid repeated file reads and validates
  * contract structure before returning.
- *
- * @package Abr4xas\McpTools\Services
  */
 class ContractLoader implements ContractLoaderInterface
 {
@@ -74,7 +72,7 @@ class ContractLoader implements ContractLoaderInterface
      * Ensures contract has correct structure: routes as keys, methods as nested keys,
      * and required fields (auth) are present.
      *
-     * @param array<string, mixed> $contract The contract to validate
+     * @param  array<string, mixed>  $contract  The contract to validate
      * @return bool True if contract structure is valid
      */
     protected function validateContractStructure(array $contract): bool

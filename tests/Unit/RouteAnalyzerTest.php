@@ -6,7 +6,7 @@ use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
 use Illuminate\Routing\Route;
 
 it('extracts path parameters from route URI', function () {
-    $analyzer = new RouteAnalyzer();
+    $analyzer = new RouteAnalyzer;
 
     expect($analyzer->extractPathParams('/api/v1/posts/{id}'))
         ->toBe(['id']);
@@ -19,14 +19,14 @@ it('extracts path parameters from route URI', function () {
 });
 
 it('extracts optional path parameters', function () {
-    $analyzer = new RouteAnalyzer();
+    $analyzer = new RouteAnalyzer;
 
     expect($analyzer->extractPathParams('/api/v1/posts/{id?}'))
         ->toBe(['id']);
 });
 
 it('determines authentication type from middleware', function () {
-    $analyzer = new RouteAnalyzer();
+    $analyzer = new RouteAnalyzer;
 
     $route = Mockery::mock(Route::class);
     $route->shouldReceive('gatherMiddleware')
@@ -38,7 +38,7 @@ it('determines authentication type from middleware', function () {
 });
 
 it('returns none auth when no auth middleware', function () {
-    $analyzer = new RouteAnalyzer();
+    $analyzer = new RouteAnalyzer;
 
     $route = Mockery::mock(Route::class);
     $route->shouldReceive('gatherMiddleware')
@@ -50,7 +50,7 @@ it('returns none auth when no auth middleware', function () {
 });
 
 it('extracts API version from URI', function () {
-    $analyzer = new RouteAnalyzer();
+    $analyzer = new RouteAnalyzer;
 
     expect($analyzer->extractApiVersion('/api/v1/posts'))
         ->toBe('v1');
@@ -66,7 +66,7 @@ it('extracts API version from URI', function () {
 });
 
 it('extracts rate limit from throttle middleware', function () {
-    $analyzer = new RouteAnalyzer();
+    $analyzer = new RouteAnalyzer;
 
     $route = Mockery::mock(Route::class);
     $route->shouldReceive('gatherMiddleware')
@@ -81,7 +81,7 @@ it('extracts rate limit from throttle middleware', function () {
 });
 
 it('returns null when no rate limit middleware', function () {
-    $analyzer = new RouteAnalyzer();
+    $analyzer = new RouteAnalyzer;
 
     $route = Mockery::mock(Route::class);
     $route->shouldReceive('gatherMiddleware')
