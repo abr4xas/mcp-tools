@@ -91,4 +91,3 @@ it('returns null when no rate limit middleware', function () {
 
     expect($rateLimit)->toBeNull();
 });
-

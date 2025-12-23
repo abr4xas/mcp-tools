@@ -51,4 +51,3 @@ interface RouteAnalyzerInterface
      */
     public function extractCustomHeaders($route): array;
 }
-

@@ -9,10 +9,34 @@ use Abr4xas\McpTools\Contracts\RouteAnalyzerInterface;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 
-it('can be instantiated with custom analyzers for testing', function () {
+it('generates contract using mocked analyzers', function () {
+    Route::group(['prefix' => 'api/v1'], function () {
+        Route::get('/test', fn() => response()->json([]));
+    });
+
     $routeAnalyzer = Mockery::mock(RouteAnalyzerInterface::class);
+    $routeAnalyzer->shouldReceive('extractPathParams')
+        ->with('/api/v1/test')
+        ->andReturn([]);
+    $routeAnalyzer->shouldReceive('determineAuth')
+        ->andReturn(['type' => 'bearer']);
+    $routeAnalyzer->shouldReceive('extractCustomHeaders')
+        ->andReturn([]);
+    $routeAnalyzer->shouldReceive('extractRateLimit')
+        ->andReturn(['name' => 'api', 'description' => '60 requests per minute']);
+    $routeAnalyzer->shouldReceive('extractApiVersion')
+        ->with('/api/v1/test')
+        ->andReturn('v1');
+
     $formRequestAnalyzer = Mockery::mock(FormRequestAnalyzerInterface::class);
+    $formRequestAnalyzer->shouldReceive('extractRequestSchema')
+        ->andReturn(['location' => 'query', 'properties' => []]);
+
     $resourceAnalyzer = Mockery::mock(ResourceAnalyzerInterface::class);
+    $resourceAnalyzer->shouldReceive('preloadResources')
+        ->once();
+    $resourceAnalyzer->shouldReceive('extractResponseSchema')
+        ->andReturn(['type' => 'object', 'properties' => ['id' => ['type' => 'integer']]]);
 
     $command = new GenerateApiContractCommand(
         $routeAnalyzer,
@@ -20,30 +44,109 @@ it('can be instantiated with custom analyzers for testing', function () {
         $resourceAnalyzer
     );
 
-    expect($command)->toBeInstanceOf(GenerateApiContractCommand::class);
+    $this->artisan($command)
+        ->assertSuccessful();
+
+    expect(File::exists(storage_path('api-contracts/api.json')))->toBeTrue();
+
+    $content = File::get(storage_path('api-contracts/api.json'));
+    $json = json_decode($content, true);
+
+    expect($json)->toHaveKey('/api/v1/test')
+        ->and($json['/api/v1/test']['GET']['auth'])->toBe(['type' => 'bearer'])
+        ->and($json['/api/v1/test']['GET']['api_version'])->toBe('v1')
+        ->and($json['/api/v1/test']['GET']['rate_limit'])->toBe(['name' => 'api', 'description' => '60 requests per minute']);
 });
 
-it('demonstrates how interfaces enable dependency injection for testing', function () {
-    // This test demonstrates that the command can accept interfaces
-    // In a real scenario, you would use Laravel's service container
-    // to bind the interfaces to implementations or mocks
-    
-    $routeAnalyzer = Mockery::mock(RouteAnalyzerInterface::class);
-    $formRequestAnalyzer = Mockery::mock(FormRequestAnalyzerInterface::class);
-    $resourceAnalyzer = Mockery::mock(ResourceAnalyzerInterface::class);
+it('handles errors from analyzers gracefully', function () {
+    Route::group(['prefix' => 'api/v1'], function () {
+        Route::get('/test', fn() => response()->json([]));
+    });
 
-    // The command can now be instantiated with mocks
+    $routeAnalyzer = Mockery::mock(RouteAnalyzerInterface::class);
+    $routeAnalyzer->shouldReceive('extractPathParams')->andReturn([]);
+    $routeAnalyzer->shouldReceive('determineAuth')->andReturn(['type' => 'none']);
+    $routeAnalyzer->shouldReceive('extractCustomHeaders')->andReturn([]);
+    $routeAnalyzer->shouldReceive('extractRateLimit')->andReturn(null);
+    $routeAnalyzer->shouldReceive('extractApiVersion')->andReturn(null);
+
+    $formRequestAnalyzer = Mockery::mock(FormRequestAnalyzerInterface::class);
+    $formRequestAnalyzer->shouldReceive('extractRequestSchema')
+        ->andReturn([]);
+
+    $resourceAnalyzer = Mockery::mock(ResourceAnalyzerInterface::class);
+    $resourceAnalyzer->shouldReceive('preloadResources')->once();
+    $resourceAnalyzer->shouldReceive('extractResponseSchema')
+        ->andReturn(['undocumented' => true]);
+
     $command = new GenerateApiContractCommand(
         $routeAnalyzer,
         $formRequestAnalyzer,
         $resourceAnalyzer
     );
 
-    // This allows for isolated unit testing without needing
-    // to set up actual routes, files, or dependencies
-    expect($command)->toBeInstanceOf(GenerateApiContractCommand::class);
-    
-    // In a real test, you would configure the mocks and test
-    // the command's behavior in isolation
+    $this->artisan($command)
+        ->assertSuccessful();
 });
 
+it('returns failure code when strict mode is enabled and errors occur', function () {
+    Route::group(['prefix' => 'api/v1'], function () {
+        Route::get('/test', fn() => response()->json([]));
+    });
+
+    $routeAnalyzer = Mockery::mock(RouteAnalyzerInterface::class);
+    $routeAnalyzer->shouldReceive('extractPathParams')->andReturn([]);
+    $routeAnalyzer->shouldReceive('determineAuth')->andReturn(['type' => 'none']);
+    $routeAnalyzer->shouldReceive('extractCustomHeaders')->andReturn([]);
+    $routeAnalyzer->shouldReceive('extractRateLimit')->andReturn(null);
+    $routeAnalyzer->shouldReceive('extractApiVersion')->andReturn(null);
+
+    $formRequestAnalyzer = Mockery::mock(FormRequestAnalyzerInterface::class);
+    $formRequestAnalyzer->shouldReceive('extractRequestSchema')
+        ->andReturn(['location' => 'unknown', 'properties' => [], 'error' => 'Could not instantiate FormRequest']);
+
+    $resourceAnalyzer = Mockery::mock(ResourceAnalyzerInterface::class);
+    $resourceAnalyzer->shouldReceive('preloadResources')->once();
+    $resourceAnalyzer->shouldReceive('extractResponseSchema')
+        ->andReturn(['undocumented' => true]);
+
+    $command = new GenerateApiContractCommand(
+        $routeAnalyzer,
+        $formRequestAnalyzer,
+        $resourceAnalyzer
+    );
+
+    $this->artisan($command, ['--strict' => true])
+        ->assertFailed();
+});
+
+it('calls preloadResources on resource analyzer', function () {
+    Route::group(['prefix' => 'api/v1'], function () {
+        Route::get('/test', fn() => response()->json([]));
+    });
+
+    $routeAnalyzer = Mockery::mock(RouteAnalyzerInterface::class);
+    $routeAnalyzer->shouldReceive('extractPathParams')->andReturn([]);
+    $routeAnalyzer->shouldReceive('determineAuth')->andReturn(['type' => 'none']);
+    $routeAnalyzer->shouldReceive('extractCustomHeaders')->andReturn([]);
+    $routeAnalyzer->shouldReceive('extractRateLimit')->andReturn(null);
+    $routeAnalyzer->shouldReceive('extractApiVersion')->andReturn(null);
+
+    $formRequestAnalyzer = Mockery::mock(FormRequestAnalyzerInterface::class);
+    $formRequestAnalyzer->shouldReceive('extractRequestSchema')->andReturn([]);
+
+    $resourceAnalyzer = Mockery::mock(ResourceAnalyzerInterface::class);
+    $resourceAnalyzer->shouldReceive('preloadResources')
+        ->once();
+    $resourceAnalyzer->shouldReceive('extractResponseSchema')
+        ->andReturn(['undocumented' => true]);
+
+    $command = new GenerateApiContractCommand(
+        $routeAnalyzer,
+        $formRequestAnalyzer,
+        $resourceAnalyzer
+    );
+
+    $this->artisan($command)
+        ->assertSuccessful();
+});

@@ -29,4 +29,3 @@ interface ResourceAnalyzerInterface
      */
     public function extractResponseSchema($action, string $uri, ?ReflectionMethod $reflection, callable $onError): array;
 }
-

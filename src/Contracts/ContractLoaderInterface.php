@@ -30,4 +30,3 @@ interface ContractLoaderInterface
      */
     public function getContractPath(): string;
 }
-

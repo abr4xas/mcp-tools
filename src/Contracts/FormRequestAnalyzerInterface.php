@@ -21,4 +21,3 @@ interface FormRequestAnalyzerInterface
      */
     public function extractRequestSchema($action, bool $isQuery, callable $onError): array;
 }
-
