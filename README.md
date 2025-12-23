@@ -113,7 +113,7 @@ Get detailed information about a specific endpoint.
 
 The MCP tools provided by this package must be manually registered in your Laravel MCP server configuration.
 
-> **Note**:
+> [!IMPORTANT]
 > **Verify registration** by checking your MCP server's available tools list.
 
 #### Troubleshooting
@@ -125,7 +125,7 @@ If you encounter issues registering the tools:
 - **Service provider not registered**: Check that `Abr4xas\McpTools\McpToolsServiceProvider` is in your `config/app.php` providers array (should be auto-discovered)
 
 
-> **Note**:
+> [!IMPORTANT]
 > The service provider is automatically registered by Laravel, but the MCP tools themselves require manual registration in your MCP server configuration.
 
 ## API Contract Structure
