@@ -31,16 +31,16 @@ class ListApiRoutes extends Tool
         $search = $request->get('search', '');
         $limit = min(max((int) $request->get('limit', 50), 1), 200);
         $includeMetadata = (bool) $request->get('include_metadata', false);
-        
+
         // Pagination support: can use either 'page' or 'offset'
         $page = (int) $request->get('page', 0);
         $offset = (int) $request->get('offset', 0);
-        
+
         // If page is provided, calculate offset
         if ($page > 0) {
             $offset = ($page - 1) * $limit;
         }
-        
+
         $offset = max($offset, 0);
 
         $contract = $this->contractLoader->load();
@@ -49,7 +49,7 @@ class ListApiRoutes extends Tool
             if (! File::exists($fullPath)) {
                 return Response::text("Error: Contract not found. Run 'php artisan api:generate-contract'.");
             }
-            
+
             return Response::text("Error: Contract file exists but has invalid structure. Please regenerate the contract with 'php artisan api:generate-contract'.");
         }
 
@@ -129,12 +129,10 @@ class ListApiRoutes extends Tool
                 ->default(50),
             'page' => $schema->integer()
                 ->description('Page number for pagination (starts at 1). Mutually exclusive with offset.')
-                ->default(1)
-                ->minimum(1),
+                ->default(1),
             'offset' => $schema->integer()
                 ->description('Number of routes to skip. Mutually exclusive with page.')
-                ->default(0)
-                ->minimum(0),
+                ->default(0),
             'include_metadata' => $schema->boolean()
                 ->description('Include additional metadata (rate limits, custom headers, path parameters, schema info)')
                 ->default(false),
