@@ -9,10 +9,9 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    // Clear static cache to prevent test pollution
-    $reflection = new ReflectionClass(DescribeApiRoute::class);
-    $property = $reflection->getProperty('contractCache');
-    $property->setValue(null, []);
+    // Clear contract cache to prevent test pollution
+    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader();
+    $contractLoader->clearCache();
 });
 
 it('requires path parameter', function () {
@@ -279,9 +278,8 @@ it('includes API version in route data', function () {
 
 it('handles invalid contract structure gracefully', function () {
     // Clear cache first to ensure fresh load
-    $reflection = new ReflectionClass(DescribeApiRoute::class);
-    $property = $reflection->getProperty('contractCache');
-    $property->setValue(null, []);
+    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader();
+    $contractLoader->clearCache();
 
     // Delete existing contract and create invalid one
     $contractPath = storage_path('api-contracts');

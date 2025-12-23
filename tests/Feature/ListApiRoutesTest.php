@@ -9,10 +9,9 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    // Clear static cache to prevent test pollution
-    $reflection = new ReflectionClass(ListApiRoutes::class);
-    $property = $reflection->getProperty('contractCache');
-    $property->setValue(null, []);
+    // Clear contract cache to prevent test pollution
+    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader();
+    $contractLoader->clearCache();
 });
 
 it('lists all routes without filters', function () {
