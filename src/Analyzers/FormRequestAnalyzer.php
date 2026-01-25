@@ -5,14 +5,22 @@ declare(strict_types=1);
 namespace Abr4xas\McpTools\Analyzers;
 
 use Abr4xas\McpTools\Exceptions\FormRequestAnalysisException;
+use Abr4xas\McpTools\Services\AnalysisCacheService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
+use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionParameter;
 use Throwable;
 
 class FormRequestAnalyzer
 {
+    protected AnalysisCacheService $cacheService;
+
+    public function __construct(AnalysisCacheService $cacheService)
+    {
+        $this->cacheService = $cacheService;
+    }
     /**
      * Extract request schema from FormRequest
      *
@@ -23,6 +31,22 @@ class FormRequestAnalyzer
      */
     public function extractSchema(string $formRequestClass, bool $isQuery): array
     {
+        $cacheKey = $formRequestClass . ':' . ($isQuery ? 'query' : 'body');
+
+        // Check cache with file modification time validation
+        try {
+            $reflection = new ReflectionClass($formRequestClass);
+            $filePath = $reflection->getFileName();
+            if ($filePath && $this->cacheService->isValidForFile('form_request', $cacheKey, $filePath)) {
+                $cached = $this->cacheService->get('form_request', $cacheKey);
+                if ($cached !== null) {
+                    return $cached;
+                }
+            }
+        } catch (Throwable) {
+            // If reflection fails, continue without cache
+        }
+
         if (! class_exists($formRequestClass)) {
             throw FormRequestAnalysisException::classNotFound($formRequestClass);
         }
@@ -59,10 +83,25 @@ class FormRequestAnalyzer
 
         $parsed = $this->parseValidationRules($rules);
 
-        return [
+        $result = [
             'location' => $isQuery ? 'query' : 'body',
             'properties' => $parsed,
         ];
+
+        // Store in cache with file modification time
+        try {
+            $reflection = new ReflectionClass($formRequestClass);
+            $filePath = $reflection->getFileName();
+            if ($filePath) {
+                $this->cacheService->put('form_request', $cacheKey, $result);
+                $this->cacheService->storeFileMtime('form_request', $cacheKey, $filePath);
+            }
+        } catch (Throwable) {
+            // If reflection fails, just cache without file validation
+            $this->cacheService->put('form_request', $cacheKey, $result);
+        }
+
+        return $result;
     }
 
     /**

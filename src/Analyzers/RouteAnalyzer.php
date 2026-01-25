@@ -5,17 +5,30 @@ declare(strict_types=1);
 namespace Abr4xas\McpTools\Analyzers;
 
 use Abr4xas\McpTools\Exceptions\RouteAnalysisException;
+use Abr4xas\McpTools\Services\AnalysisCacheService;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Str;
 use ReflectionMethod;
 
 class RouteAnalyzer
 {
+    protected AnalysisCacheService $cacheService;
+
     /** @var array<string, ReflectionMethod> */
     protected array $reflectionCache = [];
 
+    public function __construct(AnalysisCacheService $cacheService)
+    {
+        $this->cacheService = $cacheService;
+    }
+
     public function extractPathParams(string $uri): array
     {
+        $cacheKey = 'path_params:' . $uri;
+        if ($this->cacheService->has('route', $cacheKey)) {
+            return $this->cacheService->get('route', $cacheKey);
+        }
+
         preg_match_all('/\{(\w+)\??\}/', $uri, $matches);
 
         $params = [];
@@ -25,11 +38,19 @@ class RouteAnalyzer
             ];
         }
 
+        $this->cacheService->put('route', $cacheKey, $params);
+
         return $params;
     }
 
     public function determineAuth(Route $route): array
     {
+        $routeName = $route->getName() ?? $route->uri();
+        $cacheKey = 'auth:' . $routeName;
+        if ($this->cacheService->has('route', $cacheKey)) {
+            return $this->cacheService->get('route', $cacheKey);
+        }
+
         $middlewares = $route->gatherMiddleware();
         $auth = ['type' => 'none'];
 
@@ -45,6 +66,8 @@ class RouteAnalyzer
                 }
             }
         }
+
+        $this->cacheService->put('route', $cacheKey, $auth);
 
         return $auth;
     }

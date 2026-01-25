@@ -5,19 +5,25 @@ declare(strict_types=1);
 namespace Abr4xas\McpTools\Analyzers;
 
 use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
+use Abr4xas\McpTools\Services\AnalysisCacheService;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use ReflectionClass;
 use Throwable;
 
 class ResourceAnalyzer
 {
+    protected AnalysisCacheService $cacheService;
+
     protected array $availableResources = [];
 
-    /** @var array<string, array> */
-    protected array $resourceSchemaCache = [];
+    public function __construct(AnalysisCacheService $cacheService)
+    {
+        $this->cacheService = $cacheService;
+    }
 
     /**
      * Preload all available resources
@@ -40,14 +46,31 @@ class ResourceAnalyzer
      */
     public function simulateResourceOutput(string $resourceClass): array
     {
-        // Cache schema results to avoid recreating models
-        if (isset($this->resourceSchemaCache[$resourceClass])) {
-            return $this->resourceSchemaCache[$resourceClass];
+        $cacheKey = $resourceClass;
+
+        // Check cache with file modification time validation
+        try {
+            $reflection = new ReflectionClass($resourceClass);
+            $filePath = $reflection->getFileName();
+            if ($filePath && $this->cacheService->isValidForFile('resource', $cacheKey, $filePath)) {
+                $cached = $this->cacheService->get('resource', $cacheKey);
+                if ($cached !== null) {
+                    return $cached;
+                }
+            }
+        } catch (Throwable) {
+            // If reflection fails, check cache without file validation
+            if ($this->cacheService->has('resource', $cacheKey)) {
+                $cached = $this->cacheService->get('resource', $cacheKey);
+                if ($cached !== null) {
+                    return $cached;
+                }
+            }
         }
 
         if (! class_exists($resourceClass)) {
             $result = ['undocumented' => true];
-            $this->resourceSchemaCache[$resourceClass] = $result;
+            $this->cacheService->put('resource', $cacheKey, $result);
 
             return $result;
         }
@@ -99,7 +122,7 @@ class ResourceAnalyzer
 
                 // We just want 'data'
                 $result = $this->dataToSchema($resp);
-                $this->resourceSchemaCache[$resourceClass] = $result;
+                $this->storeInCache($resourceClass, $cacheKey, $result);
 
                 return $result;
             }
@@ -118,7 +141,7 @@ class ResourceAnalyzer
             }
 
             $result = $this->dataToSchema($data);
-            $this->resourceSchemaCache[$resourceClass] = $result;
+            $this->storeInCache($resourceClass, $cacheKey, $result);
 
             return $result;
         } catch (ResourceAnalysisException $e) {
@@ -182,5 +205,25 @@ class ResourceAnalyzer
         }
 
         return $namespace . '\\' . $fileItem->getFilenameWithoutExtension();
+    }
+
+    /**
+     * Store result in cache with file modification time
+     */
+    protected function storeInCache(string $resourceClass, string $cacheKey, array $result): void
+    {
+        try {
+            $reflection = new ReflectionClass($resourceClass);
+            $filePath = $reflection->getFileName();
+            if ($filePath) {
+                $this->cacheService->put('resource', $cacheKey, $result);
+                $this->cacheService->storeFileMtime('resource', $cacheKey, $filePath);
+            } else {
+                $this->cacheService->put('resource', $cacheKey, $result);
+            }
+        } catch (Throwable) {
+            // If reflection fails, just cache without file validation
+            $this->cacheService->put('resource', $cacheKey, $result);
+        }
     }
 }
