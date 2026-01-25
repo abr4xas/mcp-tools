@@ -659,7 +659,7 @@
       "Probar con APIs que soportan múltiples formatos",
       "Verificar que la información es correcta"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "validation",
@@ -674,7 +674,7 @@
       "Verificar que los tipos se detectan correctamente",
       "Probar con tipos complejos"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "validation",
@@ -718,7 +718,7 @@
       "Verificar que la información se incluye correctamente",
       "Probar con múltiples campos de archivo"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "validation",
@@ -748,7 +748,7 @@
       "Verificar que los ejemplos son válidos según el schema",
       "Probar con schemas complejos"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "validation",
@@ -777,7 +777,7 @@
       "Probar con transformador personalizado",
       "Verificar que los transformadores se aplican correctamente"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -805,7 +805,7 @@
       "Verificar que el fallback funciona",
       "Probar con modelos que requieren dependencias"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -834,7 +834,7 @@
       "Verificar que los campos del padre se incluyen",
       "Probar con múltiples niveles de herencia"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -848,7 +848,7 @@
       "Probar con diferentes tipos de paginación",
       "Verificar que la estructura de paginación es correcta"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
