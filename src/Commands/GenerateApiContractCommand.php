@@ -242,7 +242,6 @@ class GenerateApiContractCommand extends Command
                 try {
                     // Extract basic route information first (these should not throw exceptions)
                     $apiVersion = $this->routeAnalyzer->extractApiVersion($normalizedUri);
-                    $routeName = $route->getName();
 
                     // Extract route-specific information - wrap in try-catch to prevent silent failures
                     try {
@@ -267,12 +266,6 @@ class GenerateApiContractCommand extends Command
                         $rateLimit = $this->routeAnalyzer->extractRateLimit($route);
                     } catch (\Throwable) {
                         $rateLimit = null;
-                    }
-
-                    try {
-                        $middleware = $this->routeAnalyzer->analyzeMiddleware($route);
-                    } catch (\Throwable) {
-                        $middleware = [];
                     }
 
                     $isQuery = in_array($method, $queryMethods, true);
@@ -359,8 +352,6 @@ class GenerateApiContractCommand extends Command
                         'custom_headers' => $customHeaders,
                         'rate_limit' => $rateLimit,
                         'api_version' => $apiVersion,
-                        'middleware' => $middleware,
-                        'route_name' => $routeName,
                         'status_codes' => $statusCodes,
                         'content_negotiation' => $contentNegotiation,
                     ];

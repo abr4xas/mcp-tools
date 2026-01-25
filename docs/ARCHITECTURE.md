@@ -83,6 +83,8 @@ Provides detailed information about a specific API route.
 - Rate limits
 - Custom headers
 - API version
+- HTTP status codes
+- Content negotiation
 
 #### `validate-api-contract` (ValidateApiContract)
 

@@ -79,12 +79,9 @@ class ListApiRoutes extends Tool
                     }
                 }
 
-                // Filter by search term if provided (including route name)
+                // Filter by search term if provided
                 if ($search) {
-                    $matchesSearch = $this->matchesSearch($path, $routeData, $search);
-                    $matchesRouteName = isset($routeData['route_name']) &&
-                        mb_stripos($routeData['route_name'], $search) !== false;
-                    if (! $matchesSearch && ! $matchesRouteName) {
+                    if (! $this->matchesSearch($path, $routeData, $search)) {
                         continue;
                     }
                 }
@@ -94,7 +91,6 @@ class ListApiRoutes extends Tool
                     'method' => $httpMethod,
                     'auth' => $routeData['auth']['type'] ?? 'none',
                     'api_version' => $routeData['api_version'] ?? null,
-                    'route_name' => $routeData['route_name'] ?? null,
                 ];
 
                 // Add controller if available

@@ -56,24 +56,6 @@ class DescribeApiRoute extends Tool
             return Response::text((string) json_encode(['undocumented' => true], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         }
 
-        // Support searching by route name
-        $routeName = $request->get('route_name');
-        if ($routeName && isset($routeData['route_name']) && $routeData['route_name'] !== $routeName) {
-            // Try to find by route name
-            $contract = $this->loadContract();
-            if ($contract) {
-                foreach ($contract as $contractPath => $methods) {
-                    foreach ($methods as $contractMethod => $data) {
-                        if (($data['route_name'] ?? null) === $routeName && $contractMethod === $method) {
-                            $routeData = $data;
-                            $routeData['matched_route'] = $contractPath;
-                            break 2;
-                        }
-                    }
-                }
-            }
-        }
-
         return Response::text((string) json_encode($routeData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
@@ -134,8 +116,6 @@ class DescribeApiRoute extends Tool
                 ->description('HTTP method (GET, POST, PUT, PATCH, DELETE, OPTIONS)')
                 ->enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
                 ->default('GET'),
-            'route_name' => $schema->string()
-                ->description('Search by route name instead of path'),
         ];
     }
 

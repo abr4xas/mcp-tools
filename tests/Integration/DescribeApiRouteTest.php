@@ -50,8 +50,8 @@ it('describes route by path', function () {
     }
 });
 
-it('describes route by name', function () {
-    $request = new Request(['arguments' => ['route_name' => 'test']]);
+it('describes route with specific method', function () {
+    $request = new Request(['arguments' => ['path' => '/api/test', 'method' => 'GET']]);
     $response = $this->tool->handle($request);
     $text = $this->getResponseText($response);
     $result = json_decode($text, true);
@@ -62,6 +62,7 @@ it('describes route by name', function () {
             ->and($text)->not->toBeEmpty();
     } else {
         expect($result)->toBeArray();
+        expect($result)->toHaveKey('description');
     }
 });
 

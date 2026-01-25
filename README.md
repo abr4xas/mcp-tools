@@ -78,13 +78,25 @@ php artisan mcp-tools:clear-cache
 ### Health Check
 
 ```bash
-php artisan api:contract:health-check
+php artisan mcp-tools:health-check
 ```
 
 ### View Metrics
 
 ```bash
-php artisan api:contract:metrics
+php artisan mcp-tools:metrics
+```
+
+### Manage Contract Versions
+
+```bash
+php artisan api:contract:versions
+```
+
+### View Logs
+
+```bash
+php artisan mcp-tools:logs
 ```
 
 ## MCP Tools
@@ -123,7 +135,6 @@ Get detailed information about a specific endpoint.
 **Arguments:**
 - `path` (required): The API route path (e.g., `/api/v1/users/{user}`)
 - `method` (optional): HTTP method (defaults to GET)
-- `route_name` (optional): Search by route name instead of path
 
 **Example:**
 ```json
@@ -140,7 +151,8 @@ Get detailed information about a specific endpoint.
 - Path parameters with types
 - Request/response schemas (if available)
 - Rate limiting information
-- Middleware details
+- HTTP status codes
+- Content negotiation
 
 ### Registering MCP Tools
 
@@ -155,15 +167,16 @@ If you encounter issues registering the tools:
 
 ## Configuration
 
-The package automatically detects:
+The package automatically detects and includes in contracts:
 - Route parameters and types
-- Authentication requirements
-- Rate limiting
-- Middleware
-- Request validation rules
-- Response schemas
+- Authentication requirements (derived from middleware analysis)
+- Rate limiting information
+- Request validation rules (from FormRequests)
+- Response schemas (from Resources)
 - HTTP status codes
-- Headers
+- Custom headers
+- Content negotiation
+- API versioning
 
 ## API Contract Structure
 
@@ -174,10 +187,8 @@ The generated contract at `storage/api-contracts/api.json` follows this structur
     "/api/v1/users": {
         "GET": {
             "description": "List all users",
-            "api_version": "v1",
-            "auth": {
-                "type": "bearer"
-            },
+            "deprecated": null,
+            "auth": { "type": "bearer" },
             "path_parameters": {},
             "request_schema": {
                 "location": "query",
@@ -186,47 +197,60 @@ The generated contract at `storage/api-contracts/api.json` follows this structur
             "response_schema": {
                 "type": "array",
                 "items": {}
-            }
+            },
+            "response_headers": [],
+            "custom_headers": [],
+            "rate_limit": null,
+            "api_version": "v1",
+            "status_codes": {
+                "200": "OK",
+                "401": "Unauthorized"
+            },
+            "content_negotiation": []
         },
         "POST": {
             "description": "Create a new user",
-            "api_version": "v1",
-            "auth": {
-                "type": "bearer"
-            },
+            "deprecated": null,
+            "auth": { "type": "bearer" },
+            "path_parameters": {},
             "request_schema": {
                 "location": "body",
                 "properties": {
-                    "name": {
-                        "type": "string",
-                        "required": true
-                    },
-                    "email": {
-                        "type": "string",
-                        "format": "email",
-                        "required": true
-                    }
+                    "name": { "type": "string", "required": true },
+                    "email": { "type": "string", "format": "email", "required": true }
                 }
             },
-            "response_schema": {
-                "type": "object",
-                "properties": {}
-            }
+            "response_schema": { "type": "object", "properties": {} },
+            "response_headers": [],
+            "custom_headers": [],
+            "rate_limit": null,
+            "api_version": "v1",
+            "status_codes": {
+                "201": "Created",
+                "422": "Unprocessable Entity"
+            },
+            "content_negotiation": []
         }
     },
     "/api/v1/users/{user}": {
         "GET": {
             "description": "Get user details",
-            "api_version": "v1",
-            "auth": {
-                "type": "bearer"
-            },
+            "deprecated": null,
+            "auth": { "type": "bearer" },
             "path_parameters": {
-                "user": {
-                    "type": "integer",
-                    "required": true
-                }
-            }
+                "user": { "type": "integer", "required": true }
+            },
+            "request_schema": { "location": "query", "properties": {} },
+            "response_schema": { "type": "object", "properties": {} },
+            "response_headers": [],
+            "custom_headers": [],
+            "rate_limit": null,
+            "api_version": "v1",
+            "status_codes": {
+                "200": "OK",
+                "404": "Not Found"
+            },
+            "content_negotiation": []
         }
     }
 }
