@@ -126,7 +126,6 @@ fix(command): corregir inconsistencia en signature del comando (#004)
 
 - `src/` - Source code
 - `tests/` - Test files
-- `flow/` - Audit and issue documentation (internal)
 
 ## Questions?
 

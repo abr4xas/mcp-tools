@@ -4,276 +4,255 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Analyzers;
 
-use Abr4xas\McpTools\Contracts\ResourceAnalyzerInterface;
-use Illuminate\Http\JsonResponse;
+use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
+use Abr4xas\McpTools\Services\AnalysisCacheService;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
-use PhpParser\Node;
-use PhpParser\Node\Expr\MethodCall;
-use PhpParser\Node\Expr\New_;
-use PhpParser\Node\Expr\StaticCall;
-use PhpParser\Node\Name;
-use PhpParser\NodeFinder;
-use PhpParser\ParserFactory;
 use ReflectionClass;
-use ReflectionMethod;
-use ReflectionNamedType;
 use Throwable;
 
-/**
- * Resource Analyzer
- *
- * Analyzes Laravel Resource classes to extract response schemas.
- * Handles Resource discovery, simulation, and schema generation.
- */
-class ResourceAnalyzer implements ResourceAnalyzerInterface
+class ResourceAnalyzer
 {
-    /** @var array<string, string> Map of resource names to full class names */
+    protected AnalysisCacheService $cacheService;
+
+    protected ExampleGenerator $exampleGenerator;
+
+    /** @var array<string, string> */
     protected array $availableResources = [];
 
-    /** @var array<string, array<string, mixed>> Cache of resource schemas */
-    protected array $resourceSchemaCache = [];
-
-    protected string $resourcesNamespace;
-
-    protected string $modelsNamespace;
-
-    protected string $resourcesPath;
-
-    /**
-     * Create a new ResourceAnalyzer instance.
-     */
-    public function __construct()
+    public function __construct(AnalysisCacheService $cacheService, ExampleGenerator $exampleGenerator)
     {
-        $this->resourcesNamespace = Config::get('mcp-tools.resources_namespace', 'App\\Http\\Resources');
-        $this->modelsNamespace = Config::get('mcp-tools.models_namespace', 'App\\Models');
-        $this->resourcesPath = Config::get('mcp-tools.resources_path', app_path('Http/Resources'));
+        $this->cacheService = $cacheService;
+        $this->exampleGenerator = $exampleGenerator;
     }
 
     /**
-     * Preload available resources from file system.
+     * Preload all available resources with metadata caching
      */
     public function preloadResources(): void
     {
-        if (File::exists($this->resourcesPath)) {
-            $files = File::allFiles($this->resourcesPath);
+        $cacheKey = 'resources_metadata';
+
+        // Check cache first
+        if ($this->cacheService->has('resource', $cacheKey)) {
+            $cached = $this->cacheService->get('resource', $cacheKey);
+            if (is_array($cached)) {
+                $this->availableResources = $cached;
+
+                return;
+            }
+        }
+
+        $basePath = app_path('Http/Resources');
+        if (File::exists($basePath)) {
+            $files = File::allFiles($basePath);
+            $metadata = [];
+
             foreach ($files as $file) {
-                $this->availableResources[$file->getFilenameWithoutExtension()] = $this->getClassNameFromFile($file);
+                $className = $this->getClassNameFromFile($file);
+                $metadata[$file->getFilenameWithoutExtension()] = [
+                    'class' => $className,
+                    'namespace' => $this->extractNamespace($className),
+                    'path' => $file->getPath(),
+                    'name' => $file->getFilenameWithoutExtension(),
+                ];
+                $this->availableResources[$file->getFilenameWithoutExtension()] = $className;
             }
+
+            // Cache metadata
+            $this->cacheService->put('resource', $cacheKey, $this->availableResources);
         }
     }
 
     /**
-     * Extract response schema from Resource classes or method return types.
-     *
-     * @param  string|object|null  $action  The route action
-     * @param  string  $uri  The route URI
-     * @param  ReflectionMethod|null  $reflection  Optional reflection method
-     * @param  callable(string, string): void  $onError  Error handler callback
-     * @return array<string, mixed> Response schema
+     * Extract namespace from full class name
      */
-    public function extractResponseSchema($action, string $uri, ?ReflectionMethod $reflection, callable $onError): array
+    protected function extractNamespace(string $className): string
     {
-        if (is_string($action) && Str::contains($action, '@')) {
-            [$controller, $controllerMethod] = explode('@', $action);
-            $cacheKey = "{$controller}::{$controllerMethod}";
+        $parts = explode('\\', $className);
+        array_pop($parts); // Remove class name
 
-            if ($reflection === null) {
-                try {
-                    $reflection = new ReflectionMethod($controller, $controllerMethod);
-                } catch (Throwable $e) {
-                    $onError("Could not reflect method {$cacheKey}", "Method {$cacheKey} may not exist or may not be accessible.");
-
-                    return $this->fallbackToHeuristic($uri);
-                }
-            }
-
-            try {
-                $returnType = $reflection->getReturnType();
-
-                if ($returnType instanceof ReflectionNamedType) {
-                    $typeName = $returnType->getName();
-                    // Direct Resource
-                    if (Str::contains($typeName, 'Resource')) {
-                        $simulated = $this->simulateResourceOutput($typeName, $onError);
-                        if (! isset($simulated['undocumented'])) {
-                            return $simulated;
-                        }
-                    }
-                    // JsonResponse - analyze method body
-                    if ($typeName === JsonResponse::class || $typeName === 'JsonResponse') {
-                        $resourceFromCode = $this->extractResourceFromMethodBody($reflection, $onError);
-                        if ($resourceFromCode) {
-                            $simulated = $this->simulateResourceOutput($resourceFromCode, $onError);
-                            if (! isset($simulated['undocumented'])) {
-                                return $simulated;
-                            }
-                        }
-                    }
-                    // Response Wrapper (e.g. PostsIndexResponse)
-                    if (class_exists($typeName) && ! Str::startsWith($typeName, 'Illuminate\\')) {
-                        // Inspect the class for Resource usage
-                        $detectedResource = $this->inspectResponseClass($typeName, $onError);
-                        if ($detectedResource) {
-                            $simulated = $this->simulateResourceOutput($detectedResource, $onError);
-                            if (! isset($simulated['undocumented'])) {
-                                return $simulated;
-                            }
-                        }
-                    }
-                } else {
-                    // No return type, analyze method body
-                    $resourceFromCode = $this->extractResourceFromMethodBody($reflection, $onError);
-                    if ($resourceFromCode) {
-                        $simulated = $this->simulateResourceOutput($resourceFromCode, $onError);
-                        if (! isset($simulated['undocumented'])) {
-                            return $simulated;
-                        }
-                    }
-                }
-            } catch (Throwable $e) {
-                $onError("Could not extract response schema for {$cacheKey}", "Unable to analyze response schema for {$cacheKey}. The method may have complex return types or dependencies.");
-            }
-        }
-
-        return $this->fallbackToHeuristic($uri);
+        return implode('\\', $parts);
     }
 
     /**
-     * Fallback to heuristic strategy when direct analysis fails.
+     * Simulate resource output to generate schema
      *
-     * @param  string  $uri  The route URI
-     * @return array<string, mixed> Response schema
+     * @throws ResourceAnalysisException
      */
-    protected function fallbackToHeuristic(string $uri): array
+    /**
+     * @return array<string, mixed>
+     */
+    public function simulateResourceOutput(string $resourceClass): array
     {
-        $urlParts = explode('/', mb_trim($uri, '/'));
-        $resourceName = end($urlParts);
-        if (Str::startsWith($resourceName, '{')) {
-            $resourceName = prev($urlParts);
-        }
+        $cacheKey = $resourceClass;
 
-        if (! $resourceName) {
-            return ['undocumented' => true];
-        }
+        // Check cache with file modification time validation and hash-based cache key
+        try {
+            if (! class_exists($resourceClass)) {
+                $result = ['undocumented' => true];
+                $this->cacheService->put('resource', $cacheKey, $result);
 
-        $resourceName = Str::singular($resourceName);
-        $resourceName = ucfirst($resourceName);
-
-        $candidates = [
-            "{$this->resourcesNamespace}\\{$resourceName}Resource",
-            "{$this->resourcesNamespace}\\{$resourceName}OverviewResource",
-            "{$this->resourcesNamespace}\\{$resourceName}Collection",
-            "{$this->resourcesNamespace}\\".ucfirst($resourceName).'Resource',
-            "{$this->resourcesNamespace}\\Posts\\".ucfirst($resourceName).'Resource',
-        ];
-
-        // Use pre-loaded matching
-        foreach ($this->availableResources as $name => $fullClass) {
-            if (Str::contains($name, $resourceName) && Str::endsWith($name, 'Resource')) {
-                $candidates[] = $fullClass;
+                return $result;
             }
-            if (Str::contains($name, $resourceName) && Str::endsWith($name, 'Collection')) {
-                $candidates[] = $fullClass;
-            }
-        }
+            /** @var class-string $resourceClass */
+            $reflection = new ReflectionClass($resourceClass);
+            $filePath = $reflection->getFileName();
+            if ($filePath) {
+                $fileHash = md5_file($filePath);
+                $hashCacheKey = $cacheKey.':hash:'.$fileHash;
 
-        foreach (array_unique($candidates) as $class) {
-            if (class_exists($class)) {
-                $simulated = $this->simulateResourceOutput($class, function () {});
-                if (! isset($simulated['undocumented'])) {
-                    return $simulated;
+                if ($this->cacheService->has('resource', $hashCacheKey)) {
+                    $cached = $this->cacheService->get('resource', $hashCacheKey);
+                    if ($cached !== null) {
+                        return $cached;
+                    }
+                }
+
+                // Check with file modification time
+                if ($this->cacheService->isValidForFile('resource', $cacheKey, $filePath)) {
+                    $cached = $this->cacheService->get('resource', $cacheKey);
+                    if ($cached !== null) {
+                        return $cached;
+                    }
+                }
+            }
+        } catch (Throwable) {
+            // If reflection fails, check cache without file validation
+            if ($this->cacheService->has('resource', $cacheKey)) {
+                $cached = $this->cacheService->get('resource', $cacheKey);
+                if ($cached !== null) {
+                    return $cached;
                 }
             }
         }
 
-        return ['undocumented' => true];
-    }
-
-    /**
-     * Simulate resource output to generate schema.
-     *
-     * @param  string  $resourceClass  The resource class name
-     * @param  callable(string, string): void  $onError  Error handler callback
-     * @return array<string, mixed> Resource schema
-     */
-    public function simulateResourceOutput(string $resourceClass, callable $onError): array
-    {
-        // Cache schema results to avoid recreating models
-        if (isset($this->resourceSchemaCache[$resourceClass])) {
-            return $this->resourceSchemaCache[$resourceClass];
-        }
-
-        $basics = class_basename($resourceClass);
-        $modelName = str_replace(['Resource', 'Overview', 'Collection'], '', $basics);
-        $modelClass = "{$this->modelsNamespace}\\{$modelName}";
-
-        if (! class_exists($modelClass)) {
+        if (! class_exists($resourceClass)) {
             $result = ['undocumented' => true];
-            $this->resourceSchemaCache[$resourceClass] = $result;
+            $this->cacheService->put('resource', $cacheKey, $result);
 
             return $result;
         }
 
-        if (method_exists($modelClass, 'factory')) {
+        $basics = class_basename($resourceClass);
+        // Identify model from name
+        // PostCollection -> Post
+        // PostResource -> Post
+        $modelName = str_replace(['Resource', 'Overview', 'Collection'], '', $basics);
+
+        // Try multiple model detection strategies
+        $modelClass = $this->detectModelClass($modelName, $resourceClass);
+
+        if (! $modelClass || ! class_exists($modelClass)) {
+            throw ResourceAnalysisException::modelNotFound($modelClass ?? "App\\Models\\{$modelName}", $resourceClass);
+        }
+
+        if (! method_exists($modelClass, 'factory')) {
+            // Try fallback: create model instance with minimal data
             try {
-                $model = $modelClass::factory()->make();
-
-                // Ensure critical date fields are set
-                $dateFields = ['publish_date', 'published_at', 'created_at', 'updated_at', 'deleted_at'];
-                foreach ($dateFields as $dateField) {
-                    if (isset($model->$dateField) && ! $model->$dateField) {
-                        $model->$dateField = now();
-                    }
-                }
-
-                // If it's a collection resource
-                if (Str::endsWith($basics, 'Collection') || is_subclass_of($resourceClass, ResourceCollection::class)) {
-                    $items = collect([$model]);
-                    $paginator = new LengthAwarePaginator($items, 1, 15);
-                    $resource = new $resourceClass($paginator);
-                    $resp = $resource->toResponse(request())->getData(true);
-
-                    $result = $this->dataToSchema($resp);
-                    $this->resourceSchemaCache[$resourceClass] = $result;
-
-                    return $result;
-                }
-
-                // Single Resource
-                $resource = new $resourceClass($model);
-                $data = $resource->resolve(request());
-
-                $result = $this->dataToSchema($data);
-                $this->resourceSchemaCache[$resourceClass] = $result;
-
-                return $result;
+                $model = $this->createModelWithoutFactory($modelClass);
             } catch (Throwable $e) {
-                $onError("Factory failed for {$resourceClass}", "Model factory for {$resourceClass} failed. Ensure the model has a factory defined and all required dependencies are available.");
-                $result = ['undocumented' => true, 'error' => 'Factory failed'];
-                $this->resourceSchemaCache[$resourceClass] = $result;
+                throw ResourceAnalysisException::factoryNotAvailable($modelClass, $resourceClass);
+            }
+        } else {
+            $model = $modelClass::factory()->make();
+        }
+
+        try {
+            // Ensure critical date fields are set to prevent accessor crashes (e.g. publish_date)
+            $dateFields = ['publish_date', 'published_at', 'created_at', 'updated_at', 'deleted_at'];
+            foreach ($dateFields as $dateField) {
+                if (isset($model->$dateField) && ! $model->$dateField) {
+                    $model->$dateField = now();
+                }
+            }
+
+            // If it's a collection resource or ends in Collection
+            if (Str::endsWith($basics, 'Collection') || is_subclass_of($resourceClass, ResourceCollection::class)) {
+                // Pass a Paginator with fake items
+                $items = collect([$model]);
+                $paginator = new LengthAwarePaginator($items, 1, 15);
+
+                try {
+                    $resource = new $resourceClass($paginator);
+                } catch (Throwable $e) {
+                    throw ResourceAnalysisException::resourceInstantiationFailed($resourceClass, $e->getMessage(), $e);
+                }
+
+                // toResponse(request())->getData(true) is safer for Collections usually
+                try {
+                    /** @var ResourceCollection $resource */
+                    $resp = $resource->toResponse(request())->getData(true); // returns array with meta/links usually
+                } catch (Throwable $e) {
+                    throw ResourceAnalysisException::resourceResolutionFailed($resourceClass, $e->getMessage(), $e);
+                }
+
+                // We just want 'data'
+                $result = $this->dataToSchema($resp);
+
+                // Generate examples from schema
+                if (! empty($result) && ! isset($result['undocumented'])) {
+                    $result['example'] = $this->exampleGenerator->generateFromSchema($result);
+                }
+
+                // Detect pagination structure
+                if (isset($resp['data']) && isset($resp['links']) && isset($resp['meta'])) {
+                    $result['pagination'] = [
+                        'type' => 'paginated',
+                        'structure' => [
+                            'data' => 'array of items',
+                            'links' => 'pagination links',
+                            'meta' => 'pagination metadata',
+                        ],
+                    ];
+                }
+
+                $this->storeInCache($resourceClass, $cacheKey, $result);
 
                 return $result;
             }
+
+            // Single Resource
+            try {
+                $resource = new $resourceClass($model);
+            } catch (Throwable $e) {
+                throw ResourceAnalysisException::resourceInstantiationFailed($resourceClass, $e->getMessage(), $e);
+            }
+
+            try {
+                /** @var \Illuminate\Http\Resources\Json\JsonResource $resource */
+                $data = $resource->resolve(request());
+            } catch (Throwable $e) {
+                throw ResourceAnalysisException::resourceResolutionFailed($resourceClass, $e->getMessage(), $e);
+            }
+
+            $result = $this->dataToSchema($data);
+
+            // Generate examples from schema
+            if (! empty($result) && ! isset($result['undocumented'])) {
+                $result['example'] = $this->exampleGenerator->generateFromSchema($result);
+            }
+
+            $this->storeInCache($resourceClass, $cacheKey, $result);
+
+            return $result;
+        } catch (ResourceAnalysisException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw ResourceAnalysisException::factoryFailed($resourceClass, $modelClass, $e->getMessage(), $e);
         }
-
-        $result = ['undocumented' => true, 'hint' => $basics];
-        $this->resourceSchemaCache[$resourceClass] = $result;
-
-        return $result;
     }
 
     /**
-     * Convert data array to schema format.
+     * Convert data array to schema format
      *
-     * @param  array<string, mixed>  $data  The data to convert
-     * @return array<string, mixed> Schema representation
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
      */
-    protected function dataToSchema(array $data): array
+    public function dataToSchema(array $data): array
     {
         $schema = [];
         foreach ($data as $key => $value) {
@@ -298,256 +277,60 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     }
 
     /**
-     * Extract Resource class name from method body using AST analysis.
+     * Get available resources
      *
-     * @param  ReflectionMethod  $reflection  The method reflection
-     * @param  callable(string, string): void  $onError  Error handler callback
-     * @return string|null Resource class name or null
+     * @return array<string, string>
      */
-    protected function extractResourceFromMethodBody(ReflectionMethod $reflection, callable $onError): ?string
+    public function getAvailableResources(): array
+    {
+        return $this->availableResources;
+    }
+
+    /**
+     * Get class name from file
+     */
+    protected function getClassNameFromFile(\SplFileInfo $fileItem): string
+    {
+        $path = $fileItem->getPath();
+        $base = app_path('Http/Resources');
+        $relative = mb_trim(str_replace($base, '', $path), DIRECTORY_SEPARATOR);
+        $namespace = 'App\\Http\\Resources';
+        if ($relative !== '' && $relative !== '0') {
+            $namespace .= '\\'.str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
+        }
+
+        $filename = $fileItem->getFilename();
+        $filenameWithoutExt = pathinfo($filename, PATHINFO_FILENAME);
+
+        return $namespace.'\\'.$filenameWithoutExt;
+    }
+
+    /**
+     * Detect if resource extends another resource
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function detectResourceInheritance(string $resourceClass): ?array
     {
         try {
-            $fileName = $reflection->getFileName();
-            if (! $fileName) {
-                return null;
-            }
+            /** @var class-string $resourceClass */
+            $reflection = new ReflectionClass($resourceClass);
+            $parent = $reflection->getParentClass();
 
-            $content = file_get_contents($fileName);
-            if ($content === false) {
-                return null;
-            }
-
-            // Parse the entire file to get AST
-            $parser = (new ParserFactory)->create(ParserFactory::PREFER_PHP7);
-            $ast = $parser->parse($content);
-
-            if ($ast === null) {
-                return null;
-            }
-
-            // Find the method node in the AST
-            $nodeFinder = new NodeFinder;
-            $methodNode = $this->findMethodNode($ast, $reflection->getName(), $nodeFinder);
-
-            if ($methodNode === null) {
-                return null;
-            }
-
-            // Search for Resource usage patterns in the method body
-            $resourceClass = $this->findResourceInMethodNode($methodNode, $nodeFinder, $reflection);
-
-            return $resourceClass;
-        } catch (Throwable $e) {
-            $onError('Could not extract resource from method body', "Unable to analyze method body for resource extraction using AST. Error: {$e->getMessage()}");
-        }
-
-        return null;
-    }
-
-    /**
-     * Find the method node in the AST.
-     *
-     * @param  array<Node>  $ast  The AST nodes
-     * @param  string  $methodName  The method name to find
-     * @param  NodeFinder  $nodeFinder  The node finder instance
-     * @return Node\Stmt\ClassMethod|null The method node or null
-     */
-    protected function findMethodNode(array $ast, string $methodName, NodeFinder $nodeFinder): ?Node\Stmt\ClassMethod
-    {
-        $methods = $nodeFinder->findInstanceOf($ast, Node\Stmt\ClassMethod::class);
-
-        foreach ($methods as $method) {
-            if ($method instanceof Node\Stmt\ClassMethod && $method->name->toString() === $methodName) {
-                return $method;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Find Resource class usage in method node.
-     *
-     * @param  Node\Stmt\ClassMethod  $methodNode  The method node
-     * @param  NodeFinder  $nodeFinder  The node finder instance
-     * @param  ReflectionMethod  $reflection  The method reflection
-     * @return string|null Resource class name or null
-     */
-    protected function findResourceInMethodNode(Node\Stmt\ClassMethod $methodNode, NodeFinder $nodeFinder, ReflectionMethod $reflection): ?string
-    {
-        if ($methodNode->stmts === null) {
-            return null;
-        }
-
-        // Find all static method calls (Resource::make(), Resource::collection())
-        $staticCalls = $nodeFinder->findInstanceOf($methodNode->stmts, StaticCall::class);
-        foreach ($staticCalls as $call) {
-            if ($call instanceof StaticCall && $call->class instanceof Name) {
-                $className = $call->class->toString();
-                if (Str::endsWith($className, 'Resource') && in_array($call->name->toString(), ['make', 'collection'], true)) {
-                    $fullClass = $this->resolveClassName($className, $reflection);
-                    if ($fullClass && class_exists($fullClass)) {
-                        return $fullClass;
+            if ($parent && str_contains($parent->getName(), 'Resource')) {
+                // Resource extends another resource
+                $parentClass = $parent->getName();
+                try {
+                    // Try to get parent resource schema
+                    $parentSchema = $this->simulateResourceOutput($parentClass);
+                    if (! isset($parentSchema['undocumented'])) {
+                        return [
+                            'parent_resource' => $parentClass,
+                            'inherited_fields' => $parentSchema,
+                        ];
                     }
-                }
-            }
-        }
-
-        // Find all new instances (new Resource(...))
-        $newInstances = $nodeFinder->findInstanceOf($methodNode->stmts, New_::class);
-        foreach ($newInstances as $newInstance) {
-            if ($newInstance instanceof New_ && $newInstance->class instanceof Name) {
-                $className = $newInstance->class->toString();
-                if (Str::endsWith($className, 'Resource')) {
-                    $fullClass = $this->resolveClassName($className, $reflection);
-                    if ($fullClass && class_exists($fullClass)) {
-                        return $fullClass;
-                    }
-                }
-            }
-        }
-
-        // Find method calls that might contain Resources (ApiResponse::data(), response()->json(), etc.)
-        $methodCalls = $nodeFinder->findInstanceOf($methodNode->stmts, MethodCall::class);
-        foreach ($methodCalls as $methodCall) {
-            if ($methodCall instanceof MethodCall) {
-                // Check for toResourceCollection calls
-                if ($methodCall->name->toString() === 'toResourceCollection') {
-                    // Try to find Resource::class in arguments
-                    $resourceClass = $this->findResourceInArguments($methodCall->args ?? [], $reflection);
-                    if ($resourceClass) {
-                        return $resourceClass;
-                    }
-                }
-            }
-        }
-
-        // Also check static calls for ApiResponse::data(), Response::json(), etc.
-        foreach ($staticCalls as $call) {
-            if ($call instanceof StaticCall && $call->class instanceof Name) {
-                $className = $call->class->toString();
-                if (in_array($className, ['ApiResponse', 'Response', 'Illuminate\\Http\\JsonResponse'], true)) {
-                    // Look for Resource usage in arguments
-                    $resourceClass = $this->findResourceInArguments($call->args ?? [], $reflection);
-                    if ($resourceClass) {
-                        return $resourceClass;
-                    }
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Find Resource class in method/function arguments.
-     *
-     * @param  array<Node\Arg>  $args  The arguments
-     * @param  ReflectionMethod  $reflection  The method reflection
-     * @return string|null Resource class name or null
-     */
-    protected function findResourceInArguments(array $args, ReflectionMethod $reflection): ?string
-    {
-        foreach ($args as $arg) {
-            if ($arg instanceof Node\Arg) {
-                $value = $arg->value;
-
-                // Check for StaticCall in arguments (Resource::make(), Resource::collection())
-                if ($value instanceof StaticCall && $value->class instanceof Name) {
-                    $className = $value->class->toString();
-                    if (Str::endsWith($className, 'Resource')) {
-                        $fullClass = $this->resolveClassName($className, $reflection);
-                        if ($fullClass && class_exists($fullClass)) {
-                            return $fullClass;
-                        }
-                    }
-                }
-
-                // Check for ClassConstFetch (Resource::class)
-                if ($value instanceof Node\Expr\ClassConstFetch && $value->class instanceof Name) {
-                    $className = $value->class->toString();
-                    if (Str::endsWith($className, 'Resource')) {
-                        $fullClass = $this->resolveClassName($className, $reflection);
-                        if ($fullClass && class_exists($fullClass)) {
-                            return $fullClass;
-                        }
-                    }
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Resolve class name to full namespace using use statements.
-     *
-     * @param  string  $shortName  The short class name
-     * @param  ReflectionMethod  $reflection  The method reflection
-     * @return string|null Full class name or null
-     */
-    protected function resolveClassName(string $shortName, ReflectionMethod $reflection): ?string
-    {
-        // First try to find in use statements
-        $fullClass = $this->findFullClassName($reflection, $shortName);
-        if ($fullClass) {
-            return $fullClass;
-        }
-
-        // Try common namespaces
-        $commonPaths = [
-            "{$this->resourcesNamespace}\\{$shortName}",
-            "{$this->resourcesNamespace}\\Cards\\{$shortName}",
-            "{$this->resourcesNamespace}\\Users\\{$shortName}",
-            "{$this->resourcesNamespace}\\Companies\\{$shortName}",
-            "{$this->resourcesNamespace}\\ServiceCompanies\\{$shortName}",
-            "{$this->resourcesNamespace}\\Invest\\{$shortName}",
-        ];
-
-        foreach ($commonPaths as $path) {
-            if (class_exists($path)) {
-                return $path;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Find full class name from use statements in the file.
-     *
-     * @param  ReflectionMethod  $reflection  The method reflection
-     * @param  string  $shortName  The short class name
-     * @return string|null Full class name or null
-     */
-    protected function findFullClassName(ReflectionMethod $reflection, string $shortName): ?string
-    {
-        try {
-            $fileName = $reflection->getFileName();
-            if (! $fileName) {
-                return null;
-            }
-
-            $content = file_get_contents($fileName);
-            if ($content === false) {
-                return null;
-            }
-
-            // Look for use statements
-            $resourcesNamespace = preg_quote($this->resourcesNamespace, '/');
-            if (preg_match('/use\s+([^;]+'.preg_quote($shortName, '/').')\s*;/', $content, $matches)) {
-                return mb_trim($matches[1]);
-            }
-
-            // Look for use statements with as alias
-            if (preg_match('/use\s+([^;]+)\s+as\s+'.preg_quote($shortName, '/').'\s*;/', $content, $matches)) {
-                return mb_trim($matches[1]);
-            }
-
-            // If not found in use statements, try to find in available resources
-            foreach ($this->availableResources as $name => $fullClass) {
-                if ($name === $shortName || Str::endsWith($fullClass, "\\{$shortName}")) {
-                    return $fullClass;
+                } catch (Throwable) {
+                    // Ignore errors
                 }
             }
         } catch (Throwable) {
@@ -558,74 +341,220 @@ class ResourceAnalyzer implements ResourceAnalyzerInterface
     }
 
     /**
-     * Inspect response class for Resource usage.
+     * Detect relationships in resource data
      *
-     * @param  string  $responseClass  The response class name
-     * @param  callable(string, string): void  $onError  Error handler callback
-     * @return string|null Resource class name or null
+     * @param  array<string, mixed>  $data
+     * @return array<string, array{type: string, resource: string|null}>
      */
-    protected function inspectResponseClass(string $responseClass, callable $onError): ?string
+    protected function detectRelationships(string $resourceClass, array $data): array
     {
-        static $cache = [];
+        $relationships = [];
 
-        if (isset($cache[$responseClass])) {
-            return $cache[$responseClass];
-        }
-
+        // Analyze resource class for relationship methods
         try {
-            $ref = new ReflectionClass($responseClass);
-            $content = file_get_contents($ref->getFileName());
-
-            if ($content === false) {
-                $cache[$responseClass] = null;
-
-                return null;
+            if (! class_exists($resourceClass)) {
+                return [];
             }
-
-            // Look for use statements for Resources
-            $resourcesNamespace = preg_quote($this->resourcesNamespace, '/');
-            preg_match_all("/use ({$resourcesNamespace}\\\\.*);/", $content, $matches);
-            if ($matches[1] !== []) {
-                $basename = class_basename($responseClass);
-                foreach ($matches[1] as $resClass) {
-                    if (Str::contains($basename, 'Index') && Str::contains($resClass, 'Collection')) {
-                        $cache[$responseClass] = $resClass;
-
-                        return $resClass;
+            /** @var class-string $resourceClass */
+            $reflection = new ReflectionClass($resourceClass);
+            $fileName = $reflection->getFileName();
+            if ($fileName === false || ! is_string($fileName)) {
+                return [];
+            }
+            $content = file_get_contents($fileName);
+            if ($content !== false) {
+                // Look for whenLoaded, when, etc. patterns
+                if (preg_match_all('/whenLoaded\([\'"](\w+)[\'"]/', $content, $matches)) {
+                    foreach ($matches[1] as $relation) {
+                        $relationships[$relation] = [
+                            'type' => 'loaded',
+                            'resource' => $this->inferResourceFromRelation($relation),
+                        ];
                     }
                 }
 
-                // Fallback to first one
-                $result = $matches[1][0];
-                $cache[$responseClass] = $result;
-
-                return $result;
+                // Look for Resource::make or Resource::collection in whenLoaded
+                if (preg_match_all('/whenLoaded\([\'"](\w+)[\'"].*?(\w+Resource)::(make|collection)/', $content, $matches)) {
+                    foreach ($matches[1] as $index => $relation) {
+                        $resourceName = $matches[2][$index] ?? null;
+                        if ($resourceName) {
+                            $relationships[$relation] = [
+                                'type' => 'nested_resource',
+                                'resource' => $this->findFullResourceClass($resourceClass, $resourceName),
+                            ];
+                        }
+                    }
+                }
             }
-        } catch (Throwable $e) {
-            $onError("Could not inspect response class {$responseClass}", "Unable to inspect response class {$responseClass}. The class file may be inaccessible or corrupted.");
+        } catch (Throwable) {
+            // Ignore errors
         }
 
-        $cache[$responseClass] = null;
+        // Also check data for nested resource structures
+        foreach ($data as $key => $value) {
+            if (is_array($value) && Arr::isAssoc($value)) {
+                // Check if it looks like a resource structure (has id, type, etc.)
+                if (isset($value['id']) && isset($value['type'])) {
+                    $relationships[$key] = [
+                        'type' => 'has_one',
+                        'resource' => $this->inferResourceFromKey($key),
+                    ];
+                }
+            } elseif (is_array($value) && ! Arr::isAssoc($value) && ! empty($value) && is_array($value[0])) {
+                // Array of objects - likely has_many
+                if (isset($value[0]['id'])) {
+                    $relationships[$key] = [
+                        'type' => 'has_many',
+                        'resource' => $this->inferResourceFromKey($key),
+                    ];
+                }
+            }
+        }
+
+        return $relationships;
+    }
+
+    /**
+     * Infer resource class name from relation name
+     */
+    protected function inferResourceFromRelation(string $relation): ?string
+    {
+        $resourceName = ucfirst(Str::singular($relation)).'Resource';
+        $candidates = [
+            "App\\Http\\Resources\\{$resourceName}",
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (class_exists($candidate)) {
+                return $candidate;
+            }
+        }
 
         return null;
     }
 
     /**
-     * Get class name from file path.
-     *
-     * @param  \Illuminate\Filesystem\Filesystem|\SplFileInfo  $fileItem  The file item
-     * @return string Full class name
+     * Infer resource class name from data key
      */
-    protected function getClassNameFromFile($fileItem): string
+    protected function inferResourceFromKey(string $key): ?string
     {
-        $path = $fileItem->getPath();
-        $base = $this->resourcesPath;
-        $relative = mb_trim(str_replace($base, '', $path), DIRECTORY_SEPARATOR);
-        $namespace = $this->resourcesNamespace;
-        if ($relative !== '' && $relative !== '0') {
-            $namespace .= '\\'.str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
+        $resourceName = ucfirst(Str::singular($key)).'Resource';
+        $candidates = [
+            "App\\Http\\Resources\\{$resourceName}",
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (class_exists($candidate)) {
+                return $candidate;
+            }
         }
 
-        return $namespace.'\\'.$fileItem->getFilenameWithoutExtension();
+        return null;
+    }
+
+    /**
+     * Find full resource class name from short name
+     */
+    protected function findFullResourceClass(string $contextClass, string $shortName): ?string
+    {
+        // Try common namespaces
+        $candidates = [
+            "App\\Http\\Resources\\{$shortName}",
+        ];
+
+        // Try to find in use statements of context class
+        try {
+            if (! class_exists($contextClass)) {
+                return null;
+            }
+            /** @var class-string $contextClass */
+            $reflection = new ReflectionClass($contextClass);
+            $fileName = $reflection->getFileName();
+            if ($fileName === false) {
+                return null;
+            }
+            $content = file_get_contents($fileName);
+            if ($content !== false && preg_match('/use\s+([^;]+'.preg_quote($shortName, '/').')\s*;/', $content, $matches)) {
+                $candidates[] = trim($matches[1]);
+            }
+        } catch (Throwable) {
+            // Ignore
+        }
+
+        foreach ($candidates as $candidate) {
+            if (class_exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Detect model class from resource name
+     */
+    protected function detectModelClass(string $modelName, string $resourceClass): ?string
+    {
+        $candidates = [
+            "App\\Models\\{$modelName}",
+            'App\\Models\\'.ucfirst($modelName),
+            "App\\{$modelName}",
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (class_exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Create model instance without factory
+     *
+     * @param  class-string  $modelClass
+     */
+    protected function createModelWithoutFactory(string $modelClass): object
+    {
+        try {
+            return new $modelClass;
+        } catch (Throwable $e) {
+            throw ResourceAnalysisException::factoryFailed($modelClass, $modelClass, $e->getMessage(), $e);
+        }
+    }
+
+    /**
+     * Store result in cache with file modification time and hash
+     *
+     * @param  array<string, mixed>  $result
+     */
+    protected function storeInCache(string $resourceClass, string $cacheKey, array $result): void
+    {
+        try {
+            if (! class_exists($resourceClass)) {
+                $this->cacheService->put('resource', $cacheKey, $result);
+
+                return;
+            }
+            /** @var class-string $resourceClass */
+            $reflection = new ReflectionClass($resourceClass);
+            $filePath = $reflection->getFileName();
+            if ($filePath && is_string($filePath)) {
+                // Store with hash-based key for faster lookup
+                $fileHash = md5_file($filePath);
+                $hashCacheKey = $cacheKey.':hash:'.$fileHash;
+                $this->cacheService->put('resource', $hashCacheKey, $result);
+
+                // Also store with standard key
+                $this->cacheService->put('resource', $cacheKey, $result);
+                $this->cacheService->storeFileMtime('resource', $cacheKey, $filePath);
+            } else {
+                $this->cacheService->put('resource', $cacheKey, $result);
+            }
+        } catch (Throwable) {
+            // If reflection fails, just cache without file validation
+            $this->cacheService->put('resource', $cacheKey, $result);
+        }
     }
 }
