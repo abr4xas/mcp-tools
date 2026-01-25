@@ -421,7 +421,7 @@
       "Probar con problemas (contrato faltante, herramientas no registradas)",
       "Verificar que el comando detecta todos los problemas"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
