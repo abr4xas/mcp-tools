@@ -890,7 +890,7 @@
       "Ejecutar tests y verificar que pasan",
       "Verificar cobertura de código mínima 80%"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -904,7 +904,7 @@
       "Ejecutar tests y verificar que pasan",
       "Verificar que las herramientas funcionan correctamente"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -918,7 +918,7 @@
       "Ejecutar tests y verificar que pasan",
       "Verificar que el contrato generado es correcto"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -946,7 +946,7 @@
       "Ejecutar tests y verificar que cumplen benchmarks",
       "Documentar resultados de rendimiento"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -974,7 +974,7 @@
       "Ejecutar tests y verificar que pasan",
       "Documentar cómo usar las fixtures"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -988,7 +988,7 @@
       "Documentar cobertura actual",
       "Configurar CI para verificar cobertura"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "integration",
@@ -1016,7 +1016,7 @@
       "Probar workflow en PR",
       "Verificar que todos los checks pasan"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "integration",
@@ -1212,7 +1212,7 @@
       "Ejecutar phpDocumentor y verificar",
       "Verificar que la documentación es útil"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -1226,7 +1226,7 @@
       "Revisar y mejorar documentación",
       "Mantener documentación actualizada"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -1254,6 +1254,6 @@
       "Revisar y mejorar documentación",
       "Probar ejemplos y verificar que funcionan"
     ],
-    "passes": false
+    "passes": true
   }
 ]
