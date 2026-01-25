@@ -42,6 +42,25 @@ class ExampleGenerator
     }
 
     /**
+     * Generate example values for each field in schemas
+     *
+     * @param  array<string, mixed>  $schema
+     * @return array<string, mixed>
+     */
+    public function generateFieldExamples(array $schema): array
+    {
+        $examples = [];
+
+        foreach ($schema as $field => $definition) {
+            if (is_array($definition) && isset($definition['type'])) {
+                $examples[$field] = $this->generateValueForType($definition);
+            }
+        }
+
+        return $examples;
+    }
+
+    /**
      * Generate example value for a type
      *
      * @param  array<string, mixed>  $property
