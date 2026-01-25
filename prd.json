@@ -315,7 +315,7 @@
       "Verificar que las condiciones se documentan correctamente",
       "Probar con múltiples reglas condicionales en un campo"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
