@@ -56,13 +56,71 @@ class RouteAnalyzer
 
         foreach ($middlewares as $mw) {
             if (is_string($mw)) {
+                // Laravel Sanctum / API Token
                 if (Str::contains($mw, 'auth:sanctum') || Str::contains($mw, 'auth:api')) {
-                    $auth = ['type' => 'bearer'];
+                    $auth = ['type' => 'bearer', 'scheme' => 'Bearer'];
 
                     break;
                 }
+
+                // Laravel Passport
+                if (Str::contains($mw, 'auth:api') && class_exists('Laravel\Passport\Passport')) {
+                    $auth = ['type' => 'oauth2', 'scheme' => 'Bearer', 'provider' => 'passport'];
+
+                    break;
+                }
+
+                // JWT (tymon/jwt-auth)
+                if (Str::contains($mw, 'jwt') || Str::contains($mw, 'jwt.auth')) {
+                    $auth = ['type' => 'bearer', 'scheme' => 'Bearer', 'provider' => 'jwt'];
+
+                    break;
+                }
+
+                // API Key detection (common patterns)
+                if (Str::contains($mw, 'api.key') || Str::contains($mw, 'apikey') || Str::contains($mw, 'api-key')) {
+                    $auth = ['type' => 'apiKey', 'in' => 'header', 'name' => 'X-API-Key'];
+
+                    break;
+                }
+
+                // OAuth2 (generic)
+                if (Str::contains($mw, 'oauth') || Str::contains($mw, 'oauth2')) {
+                    $auth = ['type' => 'oauth2', 'scheme' => 'Bearer'];
+
+                    break;
+                }
+
+                // Basic Auth
+                if (Str::contains($mw, 'auth.basic')) {
+                    $auth = ['type' => 'basic', 'scheme' => 'Basic'];
+
+                    break;
+                }
+
+                // Guest (explicit no auth)
                 if (Str::contains($mw, 'guest')) {
-                    // Explicit guest
+                    $auth = ['type' => 'none'];
+
+                    break;
+                }
+            } elseif (is_object($mw)) {
+                // Check middleware class name for custom authentication
+                $middlewareClass = get_class($mw);
+                if (Str::contains($middlewareClass, 'Passport')) {
+                    $auth = ['type' => 'oauth2', 'scheme' => 'Bearer', 'provider' => 'passport'];
+
+                    break;
+                }
+                if (Str::contains($middlewareClass, 'Jwt') || Str::contains($middlewareClass, 'JWT')) {
+                    $auth = ['type' => 'bearer', 'scheme' => 'Bearer', 'provider' => 'jwt'];
+
+                    break;
+                }
+                if (Str::contains($middlewareClass, 'ApiKey') || Str::contains($middlewareClass, 'ApiKey')) {
+                    $auth = ['type' => 'apiKey', 'in' => 'header', 'name' => 'X-API-Key'];
+
+                    break;
                 }
             }
         }
