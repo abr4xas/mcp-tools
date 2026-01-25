@@ -256,7 +256,7 @@
       "Probar con rutas que tienen múltiples middleware",
       "Verificar que todos los middleware se detectan correctamente"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",

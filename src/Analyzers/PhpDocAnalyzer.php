@@ -96,10 +96,23 @@ class PhpDocAnalyzer
         $descriptionText = ! empty($description) ? implode(' ', $description) : null;
         $descriptionText = $descriptionText ? trim($descriptionText) : null;
 
+        // Check for @deprecated tag
+        $deprecated = null;
+        if (preg_match('/@deprecated(?:\s+(.+))?/', $docComment, $matches)) {
+            $deprecated = [
+                'deprecated' => true,
+                'message' => trim($matches[1] ?? 'This route is deprecated'),
+            ];
+        }
+
+        // Check for PHP 8 #[Deprecated] attribute (would need reflection)
+        // This is handled in the command when analyzing the method
+
         return [
             'description' => $descriptionText,
             'params' => $params,
             'return' => $return,
+            'deprecated' => $deprecated,
         ];
     }
 }

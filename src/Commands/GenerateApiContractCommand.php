@@ -91,11 +91,14 @@ class GenerateApiContractCommand extends Command
 
                     $responseSchema = $this->extractResponseSchema($action, $normalizedUri);
 
-                    // Extract PHPDoc description
-                    $description = $this->extractDescription($action, $method);
+                    // Extract PHPDoc description and deprecated status
+                    $descriptionData = $this->extractDescription($action, $method);
+                    $description = is_array($descriptionData) ? ($descriptionData['description'] ?? null) : $descriptionData;
+                    $deprecated = is_array($descriptionData) ? ($descriptionData['deprecated'] ?? null) : null;
 
                     $contract[$normalizedUri][$method] = [
                         'description' => $description,
+                        'deprecated' => $deprecated,
                         'auth' => $auth,
                         'path_parameters' => $pathParams,
                         'request_schema' => $requestSchema,
@@ -612,7 +615,28 @@ class GenerateApiContractCommand extends Command
 
             $phpDoc = $this->phpDocAnalyzer->extractFromMethod($reflection);
 
-            return $phpDoc['description'];
+            // Check for PHP 8 #[Deprecated] attribute
+            $deprecated = $phpDoc['deprecated'];
+            $attributes = $reflection->getAttributes();
+            foreach ($attributes as $attribute) {
+                $attributeName = $attribute->getName();
+                if (str_contains($attributeName, 'Deprecated')) {
+                    $deprecated = [
+                        'deprecated' => true,
+                        'message' => 'This route is deprecated',
+                    ];
+                    $args = $attribute->getArguments();
+                    if (isset($args[0])) {
+                        $deprecated['message'] = $args[0];
+                    }
+                    break;
+                }
+            }
+
+            return [
+                'description' => $phpDoc['description'],
+                'deprecated' => $deprecated,
+            ];
         } catch (Throwable) {
             return null;
         }
