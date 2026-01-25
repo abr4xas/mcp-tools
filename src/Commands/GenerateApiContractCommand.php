@@ -29,7 +29,8 @@ class GenerateApiContractCommand extends Command
     protected $signature = 'api:contract:generate 
                             {--incremental : Only update routes that have been modified}
                             {--log : Enable detailed logging for debugging}
-                            {--dry-run : Validate and show summary without writing file}';
+                            {--dry-run : Validate and show summary without writing file}
+                            {--validate-schemas : Validate generated schemas against JSON Schema}';
 
     protected $description = 'Generate a public-facing API contract for MCP consumption';
 
@@ -63,6 +64,7 @@ class GenerateApiContractCommand extends Command
         $incremental = $this->option('incremental');
         $enableLogging = $this->option('log');
         $dryRun = $this->option('dry-run');
+        $validateSchemas = $this->option('validate-schemas');
         
         if ($dryRun) {
             $this->info('Running in dry-run mode (no file will be written)...');
@@ -279,10 +281,35 @@ class GenerateApiContractCommand extends Command
             $totalRoutes += count($methods);
         }
 
+        // Validate schemas if requested
+        $schemaErrors = [];
+        if ($validateSchemas) {
+            $this->info('Validating schemas...');
+            foreach ($contract as $path => $methods) {
+                foreach ($methods as $method => $routeData) {
+                    if (isset($routeData['request_schema']['properties'])) {
+                        $validation = $this->schemaValidator->validate($routeData['request_schema']['properties']);
+                        if (! $validation['valid']) {
+                            $schemaErrors["{$path}:{$method}:request"] = $validation['errors'];
+                        }
+                    }
+                    if (isset($routeData['response_schema']) && ! isset($routeData['response_schema']['undocumented'])) {
+                        $validation = $this->schemaValidator->validate($routeData['response_schema']);
+                        if (! $validation['valid']) {
+                            $schemaErrors["{$path}:{$method}:response"] = $validation['errors'];
+                        }
+                    }
+                }
+            }
+        }
+
         $this->newLine();
         $this->info('Summary:');
         $this->line("  Total routes: {$totalRoutes}");
         $this->line('  Errors: ' . count($errors));
+        if ($validateSchemas) {
+            $this->line('  Schema validation errors: ' . count($schemaErrors));
+        }
 
         if ($dryRun) {
             $this->newLine();
@@ -297,7 +324,18 @@ class GenerateApiContractCommand extends Command
                 }
             }
 
-            return empty($errors) ? self::SUCCESS : self::FAILURE;
+            if ($validateSchemas && ! empty($schemaErrors)) {
+                $this->newLine();
+                $this->warn('Schema validation errors:');
+                foreach ($schemaErrors as $key => $errors) {
+                    $this->line("  - {$key}:");
+                    foreach ($errors as $error) {
+                        $this->line("    {$error['path']}: {$error['message']}");
+                    }
+                }
+            }
+
+            return (empty($errors) && empty($schemaErrors)) ? self::SUCCESS : self::FAILURE;
         }
 
         $directory = storage_path('api-contracts');
