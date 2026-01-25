@@ -432,6 +432,100 @@ class FormRequestAnalyzer
     }
 
     /**
+     * Improve nested structure parsing for multiple levels
+     *
+     * @param  array<string, mixed>  $rules
+     * @return array<string, mixed>
+     */
+    public function parseNestedStructures(array $rules): array
+    {
+        $schema = [];
+        
+        foreach ($rules as $field => $rule) {
+            $parts = explode('.', (string) $field);
+            $current = &$schema;
+            
+            foreach ($parts as $index => $part) {
+                $isLast = $index === count($parts) - 1;
+                
+                if ($isLast) {
+                    // Last part - set the value
+                    $ruleParts = is_string($rule) ? explode('|', $rule) : (is_array($rule) ? $rule : []);
+                    $type = $this->inferTypeFromRules($ruleParts);
+                    $required = in_array('required', $ruleParts, true);
+                    
+                    $current[$part] = [
+                        'type' => $type,
+                        'required' => $required,
+                        'constraints' => $this->extractConstraints($ruleParts),
+                    ];
+                } else {
+                    // Intermediate part - create nested structure
+                    if (! isset($current[$part])) {
+                        $current[$part] = [
+                            'type' => 'object',
+                            'properties' => [],
+                        ];
+                    }
+                    if (! isset($current[$part]['properties'])) {
+                        $current[$part]['properties'] = [];
+                    }
+                    $current = &$current[$part]['properties'];
+                }
+            }
+        }
+        
+        return $schema;
+    }
+
+    /**
+     * Infer type from validation rules
+     *
+     * @param  array<int, string>  $ruleParts
+     */
+    protected function inferTypeFromRules(array $ruleParts): string
+    {
+        foreach ($ruleParts as $part) {
+            if (in_array($part, ['integer', 'int'], true)) {
+                return 'integer';
+            }
+            if (in_array($part, ['numeric', 'float', 'double'], true)) {
+                return 'number';
+            }
+            if (in_array($part, ['boolean', 'bool'], true)) {
+                return 'boolean';
+            }
+            if ($part === 'array') {
+                return 'array';
+            }
+        }
+        
+        return 'string';
+    }
+
+    /**
+     * Extract constraints from rule parts
+     *
+     * @param  array<int, string>  $ruleParts
+     * @return array<int, string>
+     */
+    protected function extractConstraints(array $ruleParts): array
+    {
+        $constraints = [];
+        
+        foreach ($ruleParts as $part) {
+            if (in_array($part, ['email', 'url', 'uuid', 'date'], true)) {
+                $constraints[] = $part;
+            } elseif (Str::startsWith($part, 'min:') || Str::startsWith($part, 'max:') || 
+                      Str::startsWith($part, 'in:') || Str::startsWith($part, 'regex:')) {
+                $constraints[] = $part;
+            }
+        }
+        
+        return $constraints;
+    }
+
+    /**
      * Transform field name handling nested structures
      */
     protected function transformFieldName(string $field): string
