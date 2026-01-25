@@ -526,7 +526,7 @@
       "Probar filtrado por nombre parcial",
       "Verificar que los resultados son correctos"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",

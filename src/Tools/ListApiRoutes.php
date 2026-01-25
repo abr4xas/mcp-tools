@@ -36,6 +36,7 @@ class ListApiRoutes extends Tool
         $groupBy = $request->get('group_by', '');
         $controller = $request->get('controller', '');
         $resource = $request->get('resource', '');
+        $sort = $request->get('sort', '');
 
         $contract = $this->loadContract();
         if ($contract === null) {
@@ -99,8 +100,8 @@ class ListApiRoutes extends Tool
             }
         }
 
-        // Sort by path
-        usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+        // Sort routes
+        $this->sortRoutes($routes, $sort);
 
         // Group if requested
         if ($groupBy) {
@@ -143,7 +144,77 @@ class ListApiRoutes extends Tool
                 ->description('Filter by controller name (supports partial matching)'),
             'resource' => $schema->string()
                 ->description('Filter by resource name used in response (supports partial matching)'),
+            'sort' => $schema->string()
+                ->description('Sort routes by: path, method, version (e.g., "path", "method,path", "version,method")'),
         ];
+    }
+
+    /**
+     * Sort routes by specified criteria
+     *
+     * @param  array<int, array<string, mixed>>  $routes
+     */
+    protected function sortRoutes(array &$routes, string $sort): void
+    {
+        if (empty($sort)) {
+            // Default: sort by path
+            usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+            return;
+        }
+
+        $sortFields = array_map('trim', explode(',', $sort));
+        $sortFields = array_filter($sortFields);
+
+        if (empty($sortFields)) {
+            usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+            return;
+        }
+
+        usort($routes, function (array $a, array $b) use ($sortFields): int {
+            foreach ($sortFields as $field) {
+                $field = trim($field);
+                $direction = 'asc';
+                
+                if (str_ends_with($field, ':desc') || str_ends_with($field, ':DESC')) {
+                    $field = substr($field, 0, -5);
+                    $direction = 'desc';
+                } elseif (str_ends_with($field, ':asc') || str_ends_with($field, ':ASC')) {
+                    $field = substr($field, 0, -4);
+                    $direction = 'asc';
+                }
+
+                $valueA = $this->getSortValue($a, $field);
+                $valueB = $this->getSortValue($b, $field);
+
+                $comparison = match (true) {
+                    is_numeric($valueA) && is_numeric($valueB) => $valueA <=> $valueB,
+                    is_string($valueA) && is_string($valueB) => strcmp($valueA, $valueB),
+                    default => strcmp((string) $valueA, (string) $valueB),
+                };
+
+                if ($comparison !== 0) {
+                    return $direction === 'desc' ? -$comparison : $comparison;
+                }
+            }
+
+            return 0;
+        });
+    }
+
+    /**
+     * Get sort value from route data
+     *
+     * @param  array<string, mixed>  $route
+     */
+    protected function getSortValue(array $route, string $field): mixed
+    {
+        return match ($field) {
+            'path' => $route['path'] ?? '',
+            'method' => $route['method'] ?? '',
+            'version' => $route['api_version'] ?? '',
+            'controller' => $route['controller'] ?? '',
+            default => $route[$field] ?? '',
+        };
     }
 
     /**
