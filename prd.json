@@ -405,7 +405,7 @@
       "Verificar que los mensajes son claros y accionables",
       "Probar con configuración válida y verificar que no hay errores"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",

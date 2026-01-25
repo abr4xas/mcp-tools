@@ -6,6 +6,7 @@ use Abr4xas\McpTools\Commands\ClearCacheCommand;
 use Abr4xas\McpTools\Commands\ContractVersionCommand;
 use Abr4xas\McpTools\Commands\ExportOpenApiCommand;
 use Abr4xas\McpTools\Commands\GenerateApiContractCommand;
+use Abr4xas\McpTools\Commands\HealthCheckCommand;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -23,7 +24,8 @@ class McpToolsServiceProvider extends PackageServiceProvider
             ->hasCommand(GenerateApiContractCommand::class)
             ->hasCommand(ClearCacheCommand::class)
             ->hasCommand(ExportOpenApiCommand::class)
-            ->hasCommand(ContractVersionCommand::class);
+            ->hasCommand(ContractVersionCommand::class)
+            ->hasCommand(HealthCheckCommand::class);
 
         // Validate configuration on boot
         $this->validateConfiguration();
