@@ -330,7 +330,7 @@
       "Verificar que se encuentran todos los recursos",
       "Medir mejora en precisión de descubrimiento"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",

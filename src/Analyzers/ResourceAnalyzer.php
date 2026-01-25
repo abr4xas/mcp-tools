@@ -257,6 +257,140 @@ class ResourceAnalyzer
     }
 
     /**
+     * Detect relationships in resource data
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, array{type: string, resource: string|null}>
+     */
+    protected function detectRelationships(string $resourceClass, array $data): array
+    {
+        $relationships = [];
+
+        // Analyze resource class for relationship methods
+        try {
+            $reflection = new ReflectionClass($resourceClass);
+            $content = file_get_contents($reflection->getFileName());
+            if ($content !== false) {
+                // Look for whenLoaded, when, etc. patterns
+                if (preg_match_all('/whenLoaded\([\'"](\w+)[\'"]/', $content, $matches)) {
+                    foreach ($matches[1] as $relation) {
+                        $relationships[$relation] = [
+                            'type' => 'loaded',
+                            'resource' => $this->inferResourceFromRelation($relation),
+                        ];
+                    }
+                }
+
+                // Look for Resource::make or Resource::collection in whenLoaded
+                if (preg_match_all('/whenLoaded\([\'"](\w+)[\'"].*?(\w+Resource)::(make|collection)/', $content, $matches)) {
+                    foreach ($matches[1] as $index => $relation) {
+                        $resourceName = $matches[2][$index] ?? null;
+                        if ($resourceName) {
+                            $relationships[$relation] = [
+                                'type' => 'nested_resource',
+                                'resource' => $this->findFullResourceClass($resourceClass, $resourceName),
+                            ];
+                        }
+                    }
+                }
+            }
+        } catch (Throwable) {
+            // Ignore errors
+        }
+
+        // Also check data for nested resource structures
+        foreach ($data as $key => $value) {
+            if (is_array($value) && Arr::isAssoc($value)) {
+                // Check if it looks like a resource structure (has id, type, etc.)
+                if (isset($value['id']) && isset($value['type'])) {
+                    $relationships[$key] = [
+                        'type' => 'has_one',
+                        'resource' => $this->inferResourceFromKey($key),
+                    ];
+                }
+            } elseif (is_array($value) && ! Arr::isAssoc($value) && ! empty($value) && is_array($value[0])) {
+                // Array of objects - likely has_many
+                if (isset($value[0]['id'])) {
+                    $relationships[$key] = [
+                        'type' => 'has_many',
+                        'resource' => $this->inferResourceFromKey($key),
+                    ];
+                }
+            }
+        }
+
+        return $relationships;
+    }
+
+    /**
+     * Infer resource class name from relation name
+     */
+    protected function inferResourceFromRelation(string $relation): ?string
+    {
+        $resourceName = ucfirst(Str::singular($relation)) . 'Resource';
+        $candidates = [
+            "App\\Http\\Resources\\{$resourceName}",
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (class_exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Infer resource class name from data key
+     */
+    protected function inferResourceFromKey(string $key): ?string
+    {
+        $resourceName = ucfirst(Str::singular($key)) . 'Resource';
+        $candidates = [
+            "App\\Http\\Resources\\{$resourceName}",
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (class_exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find full resource class name from short name
+     */
+    protected function findFullResourceClass(string $contextClass, string $shortName): ?string
+    {
+        // Try common namespaces
+        $candidates = [
+            "App\\Http\\Resources\\{$shortName}",
+        ];
+
+        // Try to find in use statements of context class
+        try {
+            $reflection = new ReflectionClass($contextClass);
+            $content = file_get_contents($reflection->getFileName());
+            if ($content !== false && preg_match('/use\s+([^;]+' . preg_quote($shortName, '/') . ')\s*;/', $content, $matches)) {
+                $candidates[] = trim($matches[1]);
+            }
+        } catch (Throwable) {
+            // Ignore
+        }
+
+        foreach ($candidates as $candidate) {
+            if (class_exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Store result in cache with file modification time
      */
     protected function storeInCache(string $resourceClass, string $cacheKey, array $result): void
