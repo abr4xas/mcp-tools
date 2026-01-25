@@ -20,10 +20,10 @@ class ExportOpenApiCommand extends Command
     {
         $contractOption = $this->option('contract');
         $contractPath = (is_string($contractOption) ? $contractOption : null) ?? storage_path('api-contracts/api.json');
-        
+
         $outputOption = $this->option('output');
         $outputPath = (is_string($outputOption) ? $outputOption : null) ?? storage_path('api-contracts/openapi.json');
-        
+
         $formatOption = $this->option('format');
         $format = (is_string($formatOption) ? $formatOption : null) ?? 'json';
 
