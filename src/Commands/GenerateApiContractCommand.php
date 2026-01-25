@@ -195,6 +195,9 @@ class GenerateApiContractCommand extends Command
                     // Extract response headers
                     $responseHeaders = $this->extractResponseHeaders($responseSchema, $routeData);
 
+                    // Detect content negotiation
+                    $contentNegotiation = $this->middlewareAnalyzer->detectContentNegotiation($route->gatherMiddleware());
+
                     $contract[$normalizedUri][$method] = [
                         'description' => $description,
                         'deprecated' => $deprecated,
@@ -209,6 +212,7 @@ class GenerateApiContractCommand extends Command
                         'middleware' => $middleware,
                         'route_name' => $routeName,
                         'status_codes' => $statusCodes,
+                        'content_negotiation' => $contentNegotiation,
                     ];
 
                     $progressBar->setMessage("Done: {$method} {$normalizedUri}");

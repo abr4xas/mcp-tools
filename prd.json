@@ -631,7 +631,7 @@
       "Probar con diferentes tipos de middleware",
       "Verificar que los headers se detectan correctamente"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -645,7 +645,7 @@
       "Probar con diferentes tipos de respuesta",
       "Verificar que los headers se documentan correctamente"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",

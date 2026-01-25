@@ -181,4 +181,35 @@ class MiddlewareAnalyzer
 
         return $headers;
     }
+
+    /**
+     * Detect content negotiation support from middleware
+     *
+     * @return array<string, array{format: string, description: string}>
+     */
+    public function detectContentNegotiation(array $middlewares): array
+    {
+        $formats = [];
+
+        foreach ($middlewares as $middleware) {
+            $name = is_string($middleware) ? $middleware : get_class($middleware);
+            $nameLower = mb_strtolower($name);
+
+            // Default JSON support
+            $formats['application/json'] = [
+                'format' => 'json',
+                'description' => 'JSON format (default)',
+            ];
+
+            // Check for XML support
+            if (Str::contains($nameLower, 'xml')) {
+                $formats['application/xml'] = [
+                    'format' => 'xml',
+                    'description' => 'XML format',
+                ];
+            }
+        }
+
+        return $formats;
+    }
 }
