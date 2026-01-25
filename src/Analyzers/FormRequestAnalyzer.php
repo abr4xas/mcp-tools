@@ -120,6 +120,100 @@ class FormRequestAnalyzer
     }
 
     /**
+     * Extract query parameters from controller method without FormRequest
+     *
+     * @param  \ReflectionMethod  $reflection
+     * @return array<string, array{type: string, required: bool, constraints: array<string>}>
+     */
+    public function extractQueryParamsFromMethod(\ReflectionMethod $reflection): array
+    {
+        $params = [];
+        $phpDoc = $this->cacheService->get('form_request', 'phpdoc:' . $reflection->getName());
+
+        // Try to extract from PHPDoc @param tags
+        $docComment = $reflection->getDocComment();
+        if ($docComment !== false) {
+            if (preg_match_all('/@param\s+(\S+)\s+\$(\w+)(?:\s+(.+))?/', $docComment, $matches, PREG_SET_ORDER)) {
+                foreach ($matches as $match) {
+                    $type = $match[1] ?? 'string';
+                    $name = $match[2] ?? '';
+                    $description = $match[3] ?? null;
+
+                    if ($name) {
+                        // Check if it's a query parameter (not injected dependency)
+                        $isQueryParam = true;
+                        foreach ($reflection->getParameters() as $param) {
+                            if ($param->getName() === $name) {
+                                $paramType = $param->getType();
+                                if ($paramType instanceof \ReflectionNamedType && ! $paramType->isBuiltin()) {
+                                    // It's a type-hinted class, not a query param
+                                    $isQueryParam = false;
+                                }
+                                break;
+                            }
+                        }
+
+                        if ($isQueryParam) {
+                            $params[$name] = [
+                                'type' => $this->normalizeType($type),
+                                'required' => false, // Query params are usually optional
+                                'constraints' => $description ? [$description] : [],
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+
+        // Also check method body for Request::input() or Request::get() calls
+        try {
+            $fileName = $reflection->getFileName();
+            if ($fileName) {
+                $content = file_get_contents($fileName);
+                if ($content !== false) {
+                    $startLine = $reflection->getStartLine();
+                    $endLine = $reflection->getEndLine();
+                    if ($startLine && $endLine) {
+                        $lines = explode("\n", $content);
+                        $methodBody = implode("\n", array_slice($lines, $startLine - 1, $endLine - $startLine + 1));
+
+                        // Look for Request::input('param') or Request::get('param')
+                        if (preg_match_all("/Request::(?:input|get)\(['\"](\w+)['\"]/", $methodBody, $matches)) {
+                            foreach ($matches[1] as $paramName) {
+                                if (! isset($params[$paramName])) {
+                                    $params[$paramName] = [
+                                        'type' => 'string',
+                                        'required' => false,
+                                        'constraints' => [],
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable) {
+            // Ignore errors
+        }
+
+        return $params;
+    }
+
+    /**
+     * Normalize PHP type to schema type
+     */
+    protected function normalizeType(string $type): string
+    {
+        return match (strtolower($type)) {
+            'int', 'integer' => 'integer',
+            'float', 'double', 'numeric' => 'number',
+            'bool', 'boolean' => 'boolean',
+            'array' => 'array',
+            default => 'string',
+        };
+    }
+
+    /**
      * Parse validation rules into schema format
      *
      * @param  array<string, mixed>  $rules

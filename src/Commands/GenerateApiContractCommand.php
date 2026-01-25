@@ -211,15 +211,27 @@ class GenerateApiContractCommand extends Command
 
             // If no FormRequest found, check if method accepts Request parameter for query params
             if ($isQuery) {
+                $hasRequestParam = false;
                 foreach ($reflection->getParameters() as $param) {
                     $type = $param->getType();
                     if ($type instanceof ReflectionNamedType) {
                         $typeName = $type->getName();
                         if ($typeName === Request::class || $typeName === 'Request') {
-                            // Method accepts Request, might have query params but we can't infer them
-                            return ['location' => 'query', 'properties' => []];
+                            $hasRequestParam = true;
+                            break;
                         }
                     }
+                }
+
+                if ($hasRequestParam) {
+                    // Try to extract query params from method
+                    $queryParams = $this->formRequestAnalyzer->extractQueryParamsFromMethod($reflection);
+                    if (! empty($queryParams)) {
+                        return ['location' => 'query', 'properties' => $queryParams];
+                    }
+
+                    // Method accepts Request, might have query params but we can't infer them
+                    return ['location' => 'query', 'properties' => []];
                 }
             }
         } catch (RouteAnalysisException $e) {
