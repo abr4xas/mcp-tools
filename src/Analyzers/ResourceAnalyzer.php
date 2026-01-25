@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Analyzers;
 
+use Abr4xas\McpTools\Analyzers\ExampleGenerator;
 use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
 use Abr4xas\McpTools\Services\AnalysisCacheService;
 use Illuminate\Http\Resources\Json\ResourceCollection;
@@ -18,11 +19,14 @@ class ResourceAnalyzer
 {
     protected AnalysisCacheService $cacheService;
 
+    protected ExampleGenerator $exampleGenerator;
+
     protected array $availableResources = [];
 
-    public function __construct(AnalysisCacheService $cacheService)
+    public function __construct(AnalysisCacheService $cacheService, ExampleGenerator $exampleGenerator)
     {
         $this->cacheService = $cacheService;
+        $this->exampleGenerator = $exampleGenerator;
     }
 
     /**
@@ -122,6 +126,12 @@ class ResourceAnalyzer
 
                 // We just want 'data'
                 $result = $this->dataToSchema($resp);
+
+                // Generate examples from schema
+                if (! empty($result) && ! isset($result['undocumented'])) {
+                    $result['example'] = $this->exampleGenerator->generateFromSchema($result);
+                }
+
                 $this->storeInCache($resourceClass, $cacheKey, $result);
 
                 return $result;
@@ -141,6 +151,12 @@ class ResourceAnalyzer
             }
 
             $result = $this->dataToSchema($data);
+
+            // Generate examples from schema
+            if (! empty($result) && ! isset($result['undocumented'])) {
+                $result['example'] = $this->exampleGenerator->generateFromSchema($result);
+            }
+
             $this->storeInCache($resourceClass, $cacheKey, $result);
 
             return $result;
