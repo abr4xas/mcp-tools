@@ -91,39 +91,45 @@ public function __construct(
 
 ## Custom MCP Tools
 
-Create custom MCP tools by extending the base Tool class:
+Create custom MCP tools by extending Laravel MCP's Tool class:
 
 ```php
 <?php
 
 namespace App\Tools;
 
-use Abr4xas\McpTools\Tool;
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Tool;
 
 class CustomTool extends Tool
 {
-    public function name(): string
-    {
-        return 'custom-tool';
-    }
+    protected string $name = 'custom-tool';
 
-    public function description(): string
-    {
-        return 'Custom tool description';
-    }
+    protected string $description = 'Custom tool description';
 
-    public function handle(array $arguments): array
+    public function handle(Request $request): Response
     {
+        // Get arguments from request
+        $argument = $request->get('argument');
+
         // Implement tool logic
-        return ['result' => 'data'];
+        $result = ['result' => 'data'];
+
+        // Return response (handle json_encode false case)
+        $json = json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        return Response::text($json === false ? '{}' : $json);
+    }
+
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'argument' => $schema->string()
+                ->description('Example argument'),
+        ];
     }
 }
 ```
 
-Register in your service provider:
-
-```php
-use Abr4xas\McpTools\McpToolsServiceProvider;
-
-McpToolsServiceProvider::registerTool(CustomTool::class);
-```
+**Note**: MCP tools are automatically discovered by Laravel MCP server. No manual registration is needed - just ensure your tool class extends `Laravel\Mcp\Server\Tool` and is in a namespace that Laravel MCP can discover.
