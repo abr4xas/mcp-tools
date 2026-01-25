@@ -30,17 +30,50 @@ class ResourceAnalyzer
     }
 
     /**
-     * Preload all available resources
+     * Preload all available resources with metadata caching
      */
     public function preloadResources(): void
     {
+        $cacheKey = 'resources_metadata';
+        
+        // Check cache first
+        if ($this->cacheService->has('resource', $cacheKey)) {
+            $cached = $this->cacheService->get('resource', $cacheKey);
+            if (is_array($cached)) {
+                $this->availableResources = $cached;
+                return;
+            }
+        }
+
         $basePath = app_path('Http/Resources');
         if (File::exists($basePath)) {
             $files = File::allFiles($basePath);
+            $metadata = [];
+            
             foreach ($files as $file) {
-                $this->availableResources[$file->getFilenameWithoutExtension()] = $this->getClassNameFromFile($file);
+                $className = $this->getClassNameFromFile($file);
+                $metadata[$file->getFilenameWithoutExtension()] = [
+                    'class' => $className,
+                    'namespace' => $this->extractNamespace($className),
+                    'path' => $file->getPath(),
+                    'name' => $file->getFilenameWithoutExtension(),
+                ];
+                $this->availableResources[$file->getFilenameWithoutExtension()] = $className;
             }
+            
+            // Cache metadata
+            $this->cacheService->put('resource', $cacheKey, $this->availableResources);
         }
+    }
+
+    /**
+     * Extract namespace from full class name
+     */
+    protected function extractNamespace(string $className): string
+    {
+        $parts = explode('\\', $className);
+        array_pop($parts); // Remove class name
+        return implode('\\', $parts);
     }
 
     /**
