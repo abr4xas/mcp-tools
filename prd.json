@@ -557,7 +557,7 @@
       "Verificar que los enlaces son correctos",
       "Probar navegación entre páginas"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",

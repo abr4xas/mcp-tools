@@ -143,6 +143,9 @@ class ListApiRoutes extends Tool
             'total' => $totalRoutes,
         ];
 
+        // Add statistics
+        $response['statistics'] = $this->calculateStatistics($routes);
+
         return Response::text(json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
