@@ -153,9 +153,30 @@ class RouteAnalyzer
 
         foreach ($middlewares as $middleware) {
             if (is_string($middleware) && Str::startsWith($middleware, 'throttle:')) {
-                $throttleName = Str::after($middleware, 'throttle:');
+                $throttleValue = Str::after($middleware, 'throttle:');
 
-                // Common rate limit names and their descriptions for frontend
+                // Check if it's a named throttle or direct values (e.g., "throttle:60,1")
+                if (preg_match('/^(\d+),(\d+)$/', $throttleValue, $matches)) {
+                    // Direct values: throttle:60,1 means 60 requests per 1 minute
+                    $maxAttempts = (int) $matches[1];
+                    $decayMinutes = (int) $matches[2];
+
+                    return [
+                        'max_attempts' => $maxAttempts,
+                        'decay_minutes' => $decayMinutes,
+                        'description' => "{$maxAttempts} requests per {$decayMinutes} minute(s)",
+                    ];
+                }
+
+                // Named throttle - try to get from config
+                $throttleName = $throttleValue;
+                $rateLimit = $this->getRateLimitFromConfig($throttleName);
+
+                if ($rateLimit !== null) {
+                    return $rateLimit;
+                }
+
+                // Fallback to common descriptions
                 $rateLimitDescriptions = [
                     'api' => '60 requests per minute',
                     'webhook' => '5000 requests per minute',
@@ -170,6 +191,62 @@ class RouteAnalyzer
                     'description' => $rateLimitDescriptions[$throttleName] ?? "Rate limit: {$throttleName}",
                 ];
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get rate limit configuration from Laravel config
+     *
+     * @return array{max_attempts: int, decay_minutes: int, description: string}|null
+     */
+    protected function getRateLimitFromConfig(string $throttleName): ?array
+    {
+        // Check RouteServiceProvider for throttle configuration
+        try {
+            // Try to get from config/throttle.php if it exists
+            if (config()->has("throttle.{$throttleName}")) {
+                $config = config("throttle.{$throttleName}");
+                if (is_array($config) && isset($config['max_attempts']) && isset($config['decay_minutes'])) {
+                    return [
+                        'max_attempts' => (int) $config['max_attempts'],
+                        'decay_minutes' => (int) $config['decay_minutes'],
+                        'description' => "{$config['max_attempts']} requests per {$config['decay_minutes']} minute(s)",
+                    ];
+                }
+            }
+
+            // Check RouteServiceProvider throttle method
+            $routeServiceProvider = app()->getProvider(\Illuminate\Foundation\Support\Providers\RouteServiceProvider::class);
+            if ($routeServiceProvider && method_exists($routeServiceProvider, 'configureRateLimiting')) {
+                // Try to get throttle limits from RouteServiceProvider
+                // This is a bit tricky as we need to access the RateLimiter
+                $rateLimiter = app(\Illuminate\Cache\RateLimiter::class);
+                if ($rateLimiter) {
+                    // Check if there's a named limit
+                    $limiter = $rateLimiter->limiter($throttleName);
+                    if ($limiter && is_callable($limiter)) {
+                        // Try to call with a test request to get the limit
+                        // This is a simplified approach
+                        try {
+                            $testRequest = request();
+                            $result = $limiter($testRequest);
+                            if (is_array($result) && isset($result[0]) && isset($result[1])) {
+                                return [
+                                    'max_attempts' => (int) $result[0],
+                                    'decay_minutes' => (int) $result[1],
+                                    'description' => "{$result[0]} requests per {$result[1]} minute(s)",
+                                ];
+                            }
+                        } catch (Throwable) {
+                            // Ignore errors
+                        }
+                    }
+                }
+            }
+        } catch (Throwable) {
+            // Ignore errors and fall back to default
         }
 
         return null;
