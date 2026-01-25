@@ -25,7 +25,9 @@ use Throwable;
 
 class GenerateApiContractCommand extends Command
 {
-    protected $signature = 'api:contract:generate {--incremental : Only update routes that have been modified}';
+    protected $signature = 'api:contract:generate 
+                            {--incremental : Only update routes that have been modified}
+                            {--log : Enable detailed logging for debugging}';
 
     protected $description = 'Generate a public-facing API contract for MCP consumption';
 
@@ -57,11 +59,19 @@ class GenerateApiContractCommand extends Command
     public function handle(): int
     {
         $incremental = $this->option('incremental');
+        $enableLogging = $this->option('log');
         
         if ($incremental) {
             $this->info('Generating API contract (incremental mode)...');
         } else {
             $this->info('Generating API contract...');
+        }
+
+        if ($enableLogging) {
+            \Log::info('MCP Tools: Starting API contract generation', [
+                'incremental' => $incremental,
+                'timestamp' => now()->toIso8601String(),
+            ]);
         }
 
         // Optimization: Pre-scan resources to avoid File scanning inside the loop
@@ -100,9 +110,18 @@ class GenerateApiContractCommand extends Command
 
                 $this->output->write("Processing {$method} {$normalizedUri} ... ");
 
+                if ($enableLogging) {
+                    \Log::info("MCP Tools: Processing route {$method} {$normalizedUri}", [
+                        'action' => $action,
+                    ]);
+                }
+
                 // Skip if incremental and route hasn't changed
                 if ($incremental && ! $this->shouldUpdateRoute($normalizedUri, $method, $action, $existingContract, $modifiedFiles)) {
                     $this->output->writeln('Skipped (unchanged).');
+                    if ($enableLogging) {
+                        \Log::debug("MCP Tools: Skipped route {$method} {$normalizedUri} (unchanged)");
+                    }
                     continue;
                 }
 
@@ -138,6 +157,9 @@ class GenerateApiContractCommand extends Command
                     ];
 
                     $this->output->writeln('Done.');
+                    if ($enableLogging) {
+                        \Log::info("MCP Tools: Successfully processed route {$method} {$normalizedUri}");
+                    }
                 } catch (AnalysisException $e) {
                     $errorInfo = $e->toArray();
                     $errors[] = [
@@ -149,6 +171,14 @@ class GenerateApiContractCommand extends Command
                     $this->output->writeln("<error>Error: {$errorInfo['error_code']}</error>");
                     $this->warn("  {$errorInfo['message']}");
                     $this->line("  Suggestion: {$errorInfo['suggestion']}");
+                    
+                    if ($enableLogging) {
+                        \Log::warning("MCP Tools: Error processing route {$method} {$normalizedUri}", [
+                            'error_code' => $errorInfo['error_code'],
+                            'message' => $errorInfo['message'],
+                            'context' => $errorInfo['context'],
+                        ]);
+                    }
 
                     // Continue processing but mark route as having errors
                     $contract[$normalizedUri][$method] = [
@@ -220,6 +250,14 @@ class GenerateApiContractCommand extends Command
                 $this->line("  - {$error['route']}: [{$error['error_code']}] {$error['message']}");
             }
             $this->newLine();
+        }
+
+        if ($enableLogging) {
+            \Log::info('MCP Tools: API contract generation completed', [
+                'total_routes' => count($contract),
+                'errors' => count($errors),
+                'duration' => microtime(true) - LARAVEL_START,
+            ]);
         }
 
         return self::SUCCESS;

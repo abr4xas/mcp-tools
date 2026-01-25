@@ -451,7 +451,7 @@
       "Verificar que las sugerencias son útiles",
       "Asegurar que los mensajes son claros y accionables"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",

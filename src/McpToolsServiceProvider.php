@@ -27,7 +27,8 @@ class McpToolsServiceProvider extends PackageServiceProvider
             ->hasCommand(ExportOpenApiCommand::class)
             ->hasCommand(ContractVersionCommand::class)
             ->hasCommand(HealthCheckCommand::class)
-            ->hasCommand(MetricsCommand::class);
+            ->hasCommand(MetricsCommand::class)
+            ->hasCommand(ViewLogsCommand::class);
 
         // Validate configuration on boot
         $this->validateConfiguration();
