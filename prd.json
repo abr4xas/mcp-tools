@@ -11,7 +11,7 @@
       "Probar con rutas inválidas y verificar mensajes de error claros",
       "Verificar que los códigos de error son únicos y descriptivos"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -26,7 +26,7 @@
       "Probar rendimiento antes y después de implementar caché",
       "Verificar que el caché se invalida correctamente al modificar código"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -41,7 +41,7 @@
       "Verificar que el contrato generado incluye el tipo correcto de auth",
       "Probar con rutas que usan diferentes tipos de autenticación"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -57,7 +57,7 @@
       "Probar con contrato desactualizado y verificar detección de diferencias",
       "Probar con contrato actualizado y verificar que no hay diferencias"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -74,7 +74,7 @@
       "Probar comparando dos versiones diferentes de contrato",
       "Verificar que el reporte muestra todos los cambios relevantes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
