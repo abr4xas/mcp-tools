@@ -28,7 +28,7 @@ class TestCase extends Orchestra
 
         // Use fake storage for tests
         Storage::fake('local');
-        
+
         // Create temporary storage directory for test contracts
         $this->contractPath = storage_path('api-contracts');
         \Illuminate\Support\Facades\File::ensureDirectoryExists($this->contractPath);
