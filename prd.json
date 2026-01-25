@@ -286,7 +286,7 @@
       "Verificar que la estructura se mantiene en el schema",
       "Probar con múltiples niveles de anidamiento"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "validation",

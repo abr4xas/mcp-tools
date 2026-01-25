@@ -271,6 +271,17 @@ class FormRequestAnalyzer
                     $constraints[] = $part;
                 } elseif (Str::startsWith($part, 'unique:')) {
                     $constraints[] = $part;
+                } elseif (class_exists($part) && is_subclass_of($part, \Illuminate\Contracts\Validation\Rule::class)) {
+                    // Custom validation rule class
+                    $constraints[] = 'custom_rule:' . $part;
+                } elseif (Str::contains($part, '\\') && class_exists($part)) {
+                    // Custom rule class (full namespace)
+                    $constraints[] = 'custom_rule:' . $part;
+                } elseif (! in_array($part, ['required', 'integer', 'int', 'numeric', 'float', 'double', 'boolean', 'bool', 'array', 'string', 'email', 'url', 'uuid', 'date'], true)) {
+                    // Unknown rule - likely custom
+                    if (! Str::startsWith($part, 'min:') && ! Str::startsWith($part, 'max:') && ! Str::startsWith($part, 'in:') && ! Str::startsWith($part, 'regex:') && ! Str::startsWith($part, 'exists:') && ! Str::startsWith($part, 'unique:')) {
+                        $constraints[] = 'custom:' . $part;
+                    }
                 }
             }
 
