@@ -164,6 +164,7 @@ class GenerateApiContractCommand extends Command
                     $rateLimit = $this->routeAnalyzer->extractRateLimit($route);
                     $apiVersion = $this->routeAnalyzer->extractApiVersion($normalizedUri);
                     $middleware = $this->routeAnalyzer->analyzeMiddleware($route);
+                    $routeName = $route->getName();
 
                     $isQuery = in_array($method, $queryMethods, true);
                     $requestSchema = $this->extractRequestSchema($action, $isQuery);
@@ -186,6 +187,7 @@ class GenerateApiContractCommand extends Command
                         'rate_limit' => $rateLimit,
                         'api_version' => $apiVersion,
                         'middleware' => $middleware,
+                        'route_name' => $routeName,
                     ];
 
                     $progressBar->setMessage("Done: {$method} {$normalizedUri}");

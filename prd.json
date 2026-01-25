@@ -587,7 +587,7 @@
       "Verificar que el matching es correcto",
       "Probar casos edge y verificar que no fallan"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
