@@ -223,14 +223,8 @@ class FormRequestAnalyzer
     {
         $schema = [];
         foreach ($rules as $field => $rule) {
-            // Convert dot notation to bracket notation for query params
-            if (Str::contains((string) $field, '.')) {
-                $parts = explode('.', (string) $field);
-                $root = array_shift($parts);
-                $transformedField = $root . '[' . implode('][', $parts) . ']';
-            } else {
-                $transformedField = (string) $field;
-            }
+            // Handle nested arrays (e.g., "items.*.name" or "items.0.name")
+            $transformedField = $this->transformFieldName((string) $field);
 
             $constraints = [];
             $ruleParts = is_string($rule) ? explode('|', $rule) : (is_array($rule) ? $rule : []);
@@ -280,13 +274,98 @@ class FormRequestAnalyzer
                 }
             }
 
-            $schema[$transformedField] = [
-                'type' => $type,
-                'required' => $required,
-                'constraints' => $constraints,
-            ];
+            // Handle nested structures
+            if (Str::contains($transformedField, '[') && Str::contains($transformedField, ']')) {
+                $this->setNestedField($schema, $transformedField, [
+                    'type' => $type,
+                    'required' => $required,
+                    'constraints' => $constraints,
+                ]);
+            } else {
+                $schema[$transformedField] = [
+                    'type' => $type,
+                    'required' => $required,
+                    'constraints' => $constraints,
+                ];
+            }
         }
 
         return $schema;
+    }
+
+    /**
+     * Transform field name handling nested structures
+     */
+    protected function transformFieldName(string $field): string
+    {
+        // Convert dot notation to bracket notation for query params
+        // Handle nested arrays: "items.*.name" -> "items[*][name]"
+        if (Str::contains($field, '.')) {
+            $parts = explode('.', $field);
+            $root = array_shift($parts);
+            $transformed = $root;
+
+            foreach ($parts as $part) {
+                if ($part === '*') {
+                    $transformed .= '[*]';
+                } else {
+                    $transformed .= '[' . $part . ']';
+                }
+            }
+
+            return $transformed;
+        }
+
+        return $field;
+    }
+
+    /**
+     * Set nested field in schema maintaining hierarchy
+     *
+     * @param  array<string, mixed>  $schema
+     * @param  array<string, mixed>  $value
+     */
+    protected function setNestedField(array &$schema, string $field, array $value): void
+    {
+        // Parse bracket notation: "items[*][name]" -> ["items", "*", "name"]
+        preg_match_all('/\[([^\]]+)\]/', $field, $matches);
+        $baseField = preg_replace('/\[.*$/', '', $field);
+        $path = $matches[1] ?? [];
+
+        if (empty($path)) {
+            $schema[$baseField] = $value;
+            return;
+        }
+
+        // Build nested structure
+        if (! isset($schema[$baseField])) {
+            $schema[$baseField] = [
+                'type' => 'array',
+                'items' => ['type' => 'object', 'properties' => []],
+            ];
+        }
+
+        $current = &$schema[$baseField];
+        foreach ($path as $index => $key) {
+            if ($key === '*') {
+                // Array item
+                if (! isset($current['items'])) {
+                    $current['items'] = ['type' => 'object', 'properties' => []];
+                }
+                $current = &$current['items'];
+            } else {
+                // Object property
+                if (! isset($current['properties'])) {
+                    $current['properties'] = [];
+                }
+                if (! isset($current['properties'][$key])) {
+                    $current['properties'][$key] = ['type' => 'string'];
+                }
+                $current = &$current['properties'][$key];
+            }
+        }
+
+        // Set the final value
+        $current = array_merge($current, $value);
     }
 }

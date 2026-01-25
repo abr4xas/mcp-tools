@@ -271,7 +271,7 @@
       "Verificar que la información aparece en el contrato",
       "Probar con métodos sin deprecación y verificar que no aparece"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "validation",
