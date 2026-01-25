@@ -4,6 +4,7 @@ namespace Abr4xas\McpTools\Tests;
 
 use Abr4xas\McpTools\McpToolsServiceProvider;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Storage;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 /**
@@ -25,6 +26,9 @@ class TestCase extends Orchestra
             fn (string $modelName) => 'Abr4xas\\McpTools\\Database\\Factories\\'.class_basename($modelName).'Factory'
         );
 
+        // Use fake storage for tests
+        Storage::fake('local');
+        
         // Create temporary storage directory for test contracts
         $this->contractPath = storage_path('api-contracts');
         \Illuminate\Support\Facades\File::ensureDirectoryExists($this->contractPath);
