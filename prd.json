@@ -689,7 +689,7 @@
       "Verificar que los valores se extraen correctamente",
       "Probar con enums anidados en arrays"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "validation",
@@ -733,7 +733,7 @@
       "Probar con schemas inválidos y verificar detección",
       "Incluir errores en reporte de generación"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -762,7 +762,7 @@
       "Verificar que la estructura se mantiene",
       "Probar con diferentes niveles de anidamiento"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -791,7 +791,7 @@
       "Verificar que el caché mejora el rendimiento",
       "Probar invalidación de caché"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -819,7 +819,7 @@
       "Verificar que los modelos se detectan correctamente",
       "Probar con recursos en subdirectorios"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -862,7 +862,7 @@
       "Verificar que los campos condicionales se documentan",
       "Probar con múltiples campos condicionales"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -876,7 +876,7 @@
       "Verificar que los metadatos se extraen correctamente",
       "Probar con diferentes tipos de metadatos"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
