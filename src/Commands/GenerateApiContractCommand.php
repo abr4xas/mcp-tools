@@ -330,7 +330,7 @@ class GenerateApiContractCommand extends Command
             }
         }
 
-        // Heuristic Strategy
+        // Improved static analysis strategy
         $urlParts = explode('/', mb_trim($uri, '/'));
         $resourceName = end($urlParts);
         if (Str::startsWith($resourceName, '{')) {
@@ -344,21 +344,18 @@ class GenerateApiContractCommand extends Command
         $resourceName = Str::singular($resourceName); // Intelligent singularization
         $resourceName = ucfirst($resourceName);
 
-        $candidates = [
-            "App\\Http\\Resources\\{$resourceName}Resource",
-            "App\\Http\\Resources\\{$resourceName}OverviewResource",
-            "App\\Http\\Resources\\{$resourceName}Collection",
-            'App\\Http\\Resources\\' . ucfirst($resourceName) . 'Resource',
-            'App\\Http\\Resources\\Posts\\' . ucfirst($resourceName) . 'Resource', // Heuristic folder
-        ];
+        // Build comprehensive candidate list using static analysis
+        $candidates = $this->buildResourceCandidates($resourceName, $uri);
 
-        // Use pre-loaded matching
+        // Use pre-loaded matching with improved search
         $availableResources = $this->resourceAnalyzer->getAvailableResources();
         foreach ($availableResources as $name => $fullClass) {
-            if (Str::contains($name, $resourceName) && Str::endsWith($name, 'Resource')) {
-                $candidates[] = $fullClass;
-            }
-            if (Str::contains($name, $resourceName) && Str::endsWith($name, 'Collection')) {
+            // More intelligent matching
+            $nameLower = mb_strtolower($name);
+            $resourceLower = mb_strtolower($resourceName);
+            
+            if ((Str::contains($nameLower, $resourceLower) || Str::contains($resourceLower, $nameLower)) 
+                && (Str::endsWith($name, 'Resource') || Str::endsWith($name, 'Collection'))) {
                 $candidates[] = $fullClass;
             }
         }
@@ -640,6 +637,42 @@ class GenerateApiContractCommand extends Command
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Build comprehensive list of resource candidates using static analysis
+     *
+     * @return array<int, string>
+     */
+    protected function buildResourceCandidates(string $resourceName, string $uri): array
+    {
+        $candidates = [
+            "App\\Http\\Resources\\{$resourceName}Resource",
+            "App\\Http\\Resources\\{$resourceName}OverviewResource",
+            "App\\Http\\Resources\\{$resourceName}Collection",
+            'App\\Http\\Resources\\' . ucfirst($resourceName) . 'Resource',
+        ];
+
+        // Extract namespace hints from URI path
+        $urlParts = explode('/', mb_trim($uri, '/'));
+        if (count($urlParts) > 2) {
+            // e.g., /api/v1/posts/cards -> try Posts\Cards namespace
+            $namespaceParts = array_slice($urlParts, 2, -1); // Skip api, version, and last part
+            if (! empty($namespaceParts)) {
+                $namespace = 'App\\Http\\Resources\\' . implode('\\', array_map('ucfirst', $namespaceParts));
+                $candidates[] = "{$namespace}\\{$resourceName}Resource";
+                $candidates[] = "{$namespace}\\{$resourceName}Collection";
+            }
+        }
+
+        // Common folder patterns
+        $commonFolders = ['Posts', 'Users', 'Companies', 'Cards', 'Invest'];
+        foreach ($commonFolders as $folder) {
+            $candidates[] = "App\\Http\\Resources\\{$folder}\\{$resourceName}Resource";
+            $candidates[] = "App\\Http\\Resources\\{$folder}\\{$resourceName}Collection";
+        }
+
+        return array_unique($candidates);
     }
 
 }
