@@ -20,11 +20,18 @@ class DescribeApiRoute extends Tool
     public function handle(Request $request): Response
     {
         $path = $request->get('path');
-        $method = mb_strtoupper((string) $request->get('method', 'GET'));
+        $method = $request->get('method', 'GET');
+
+        // Support batch operations: accept array of paths
+        if (is_array($path)) {
+            return $this->handleBatch($request, $path, $method);
+        }
 
         if (! $path || ! is_string($path)) {
             return Response::text("Error: 'path' parameter is required and must be a string.");
         }
+
+        $method = mb_strtoupper((string) $method);
 
         if (! in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], true)) {
             return Response::text("Error: Invalid HTTP method '{$method}'. Must be one of: GET, POST, PUT, PATCH, DELETE, OPTIONS.");
@@ -45,6 +52,51 @@ class DescribeApiRoute extends Tool
         }
 
         return Response::text(json_encode($routeData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+
+    /**
+     * Handle batch operations with multiple paths
+     *
+     * @param  array<string>  $paths
+     * @param  string|array<string>  $method
+     */
+    protected function handleBatch(Request $request, array $paths, $method): Response
+    {
+        $contract = $this->loadContract();
+        if ($contract === null) {
+            return Response::text("Error: Contract not found. Run 'php artisan api:contract:generate'.");
+        }
+
+        $results = [];
+        $methods = is_array($method) ? $method : [$method];
+
+        foreach ($paths as $path) {
+            if (! is_string($path)) {
+                continue;
+            }
+
+            $normalizedPath = '/' . mb_ltrim($path, '/');
+
+            foreach ($methods as $m) {
+                $m = mb_strtoupper((string) $m);
+                if (! in_array($m, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], true)) {
+                    continue;
+                }
+
+                $routeData = $this->findRouteData($contract, $normalizedPath, $m);
+
+                $results[] = [
+                    'path' => $normalizedPath,
+                    'method' => $m,
+                    'data' => $routeData ?? ['undocumented' => true],
+                ];
+            }
+        }
+
+        return Response::text(json_encode([
+            'batch_results' => $results,
+            'total_operations' => count($results),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     public function schema(JsonSchema $schema): array

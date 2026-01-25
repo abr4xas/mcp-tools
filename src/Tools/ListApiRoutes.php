@@ -21,10 +21,18 @@ class ListApiRoutes extends Tool
 
     public function handle(Request $request): Response
     {
-        $method = mb_strtoupper((string) $request->get('method', ''));
+        // Support batch operations: accept array of filters
+        $method = $request->get('method', '');
         $version = $request->get('version', '');
         $search = $request->get('search', '');
         $limit = min(max((int) $request->get('limit', 50), 1), 200);
+
+        // Handle array of filters for batch operations
+        if (is_array($method) || is_array($version) || is_array($search)) {
+            return $this->handleBatch($request);
+        }
+
+        $method = mb_strtoupper((string) $method);
 
         $contract = $this->loadContract();
         if ($contract === null) {
@@ -140,5 +148,93 @@ class ListApiRoutes extends Tool
         }
 
         return false;
+    }
+
+    /**
+     * Handle batch operations with multiple filters
+     */
+    protected function handleBatch(Request $request): Response
+    {
+        $methods = $request->get('method', []);
+        $versions = $request->get('version', []);
+        $searches = $request->get('search', []);
+        $limit = min(max((int) $request->get('limit', 50), 1), 200);
+
+        // Normalize to arrays
+        if (! is_array($methods)) {
+            $methods = $methods ? [$methods] : [];
+        }
+        if (! is_array($versions)) {
+            $versions = $versions ? [$versions] : [];
+        }
+        if (! is_array($searches)) {
+            $searches = $searches ? [$searches] : [];
+        }
+
+        $contract = $this->loadContract();
+        if ($contract === null) {
+            return Response::text("Error: Contract not found. Run 'php artisan api:contract:generate'.");
+        }
+
+        $results = [];
+
+        // Process each combination of filters
+        $filters = [];
+        foreach ($methods as $m) {
+            foreach ($versions as $v) {
+                foreach ($searches as $s) {
+                    $filters[] = [
+                        'method' => mb_strtoupper((string) $m),
+                        'version' => $v,
+                        'search' => $s,
+                    ];
+                }
+            }
+        }
+
+        // If no filters provided, use empty filter
+        if (empty($filters)) {
+            $filters[] = ['method' => '', 'version' => '', 'search' => ''];
+        }
+
+        foreach ($filters as $filter) {
+            $routes = [];
+            foreach ($contract as $path => $methods) {
+                foreach ($methods as $httpMethod => $routeData) {
+                    // Apply filters
+                    if ($filter['method'] && $httpMethod !== $filter['method']) {
+                        continue;
+                    }
+                    if ($filter['version'] && ($routeData['api_version'] ?? null) !== $filter['version']) {
+                        continue;
+                    }
+                    if ($filter['search'] && ! $this->matchesSearch($path, $routeData, $filter['search'])) {
+                        continue;
+                    }
+
+                    $routes[] = [
+                        'path' => $path,
+                        'method' => $httpMethod,
+                        'auth' => $routeData['auth']['type'] ?? 'none',
+                        'api_version' => $routeData['api_version'] ?? null,
+                    ];
+                }
+            }
+
+            usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+            $routes = array_slice($routes, 0, $limit);
+
+            $results[] = [
+                'filters' => $filter,
+                'total' => count($routes),
+                'limit' => $limit,
+                'routes' => $routes,
+            ];
+        }
+
+        return Response::text(json_encode([
+            'batch_results' => $results,
+            'total_operations' => count($results),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 }

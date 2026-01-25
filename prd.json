@@ -165,7 +165,7 @@
       "Verificar que la funcionalidad se mantiene igual",
       "Medir mejora en tiempo de ejecución"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
