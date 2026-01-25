@@ -2,32 +2,32 @@
 
 namespace Abr4xas\McpTools\Commands;
 
-use Throwable;
+use Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
+use Abr4xas\McpTools\Analyzers\MiddlewareAnalyzer;
+use Abr4xas\McpTools\Analyzers\PhpDocAnalyzer;
+use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
+use Abr4xas\McpTools\Analyzers\ResponseCodeAnalyzer;
+use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
+use Abr4xas\McpTools\Exceptions\AnalysisException;
+use Abr4xas\McpTools\Exceptions\FormRequestAnalysisException;
+use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
+use Abr4xas\McpTools\Exceptions\RouteAnalysisException;
+use Abr4xas\McpTools\Services\AstCacheService;
+use Abr4xas\McpTools\Services\JsonSchemaValidator;
+use Abr4xas\McpTools\Services\SchemaTransformerRegistry;
+use Illuminate\Console\Command;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Route as RoutingRoute;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
-use Illuminate\Support\Str;
-use Illuminate\Http\Request;
-use Illuminate\Console\Command;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Foundation\Http\FormRequest;
-use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
-use Illuminate\Routing\Route as RoutingRoute;
-use Abr4xas\McpTools\Analyzers\PhpDocAnalyzer;
-use Abr4xas\McpTools\Services\AstCacheService;
-use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
-use Abr4xas\McpTools\Analyzers\MiddlewareAnalyzer;
-use Abr4xas\McpTools\Exceptions\AnalysisException;
-use Abr4xas\McpTools\Services\JsonSchemaValidator;
-use Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
-use Abr4xas\McpTools\Analyzers\ResponseCodeAnalyzer;
-use Abr4xas\McpTools\Exceptions\RouteAnalysisException;
-use Abr4xas\McpTools\Services\SchemaTransformerRegistry;
-use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
-use Abr4xas\McpTools\Exceptions\FormRequestAnalysisException;
+use Throwable;
 
 class GenerateApiContractCommand extends Command
 {
@@ -208,7 +208,6 @@ class GenerateApiContractCommand extends Command
                 if ($method === 'HEAD') {
                     continue;
                 }
-
 
                 if ($enableLogging) {
                     Log::info("MCP Tools: Processing route {$method} {$normalizedUri}", [

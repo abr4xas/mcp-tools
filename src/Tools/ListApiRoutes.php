@@ -45,6 +45,7 @@ class ListApiRoutes extends Tool
             if (! File::exists($fullPath)) {
                 return Response::text('Error: Contract not found. Run \'php artisan api:contract:generate\'.');
             }
+
             return Response::text('Error: Contract file exists but has invalid structure. Please regenerate the contract with \'php artisan api:contract:generate\'.');
         }
 
