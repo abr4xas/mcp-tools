@@ -342,6 +342,24 @@ class FormRequestAnalyzer
                     $type = 'array';
                 } elseif ($part === 'string') {
                     $type = 'string';
+                } elseif (class_exists($part) && enum_exists($part)) {
+                    // PHP 8.1+ enum support
+                    $type = 'enum';
+                    try {
+                        $enumReflection = new \ReflectionEnum($part);
+                        $cases = $enumReflection->getCases();
+                        $values = [];
+                        foreach ($cases as $case) {
+                            if ($case->hasBackingType()) {
+                                $values[] = $case->getBackingValue();
+                            } else {
+                                $values[] = $case->getName();
+                            }
+                        }
+                        $constraints[] = 'enum_values: ' . implode(',', $values);
+                    } catch (\Throwable) {
+                        // Ignore enum extraction errors
+                    }
                 } elseif ($part === 'email') {
                     $constraints[] = 'email';
                 } elseif ($part === 'url') {
