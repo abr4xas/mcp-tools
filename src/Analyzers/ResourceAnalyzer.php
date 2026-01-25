@@ -85,14 +85,27 @@ class ResourceAnalyzer
     {
         $cacheKey = $resourceClass;
 
-        // Check cache with file modification time validation
+        // Check cache with file modification time validation and hash-based cache key
         try {
             $reflection = new ReflectionClass($resourceClass);
             $filePath = $reflection->getFileName();
-            if ($filePath && $this->cacheService->isValidForFile('resource', $cacheKey, $filePath)) {
-                $cached = $this->cacheService->get('resource', $cacheKey);
-                if ($cached !== null) {
-                    return $cached;
+            if ($filePath) {
+                $fileHash = md5_file($filePath);
+                $hashCacheKey = $cacheKey . ':hash:' . $fileHash;
+                
+                if ($this->cacheService->has('resource', $hashCacheKey)) {
+                    $cached = $this->cacheService->get('resource', $hashCacheKey);
+                    if ($cached !== null) {
+                        return $cached;
+                    }
+                }
+                
+                // Check with file modification time
+                if ($this->cacheService->isValidForFile('resource', $cacheKey, $filePath)) {
+                    $cached = $this->cacheService->get('resource', $cacheKey);
+                    if ($cached !== null) {
+                        return $cached;
+                    }
                 }
             }
         } catch (Throwable) {
@@ -444,7 +457,7 @@ class ResourceAnalyzer
     }
 
     /**
-     * Store result in cache with file modification time
+     * Store result in cache with file modification time and hash
      */
     protected function storeInCache(string $resourceClass, string $cacheKey, array $result): void
     {
@@ -452,6 +465,12 @@ class ResourceAnalyzer
             $reflection = new ReflectionClass($resourceClass);
             $filePath = $reflection->getFileName();
             if ($filePath) {
+                // Store with hash-based key for faster lookup
+                $fileHash = md5_file($filePath);
+                $hashCacheKey = $cacheKey . ':hash:' . $fileHash;
+                $this->cacheService->put('resource', $hashCacheKey, $result);
+                
+                // Also store with standard key
                 $this->cacheService->put('resource', $cacheKey, $result);
                 $this->cacheService->storeFileMtime('resource', $cacheKey, $filePath);
             } else {
