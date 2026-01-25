@@ -114,14 +114,36 @@ class ListApiRoutes extends Tool
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         }
 
-        // Apply limit
-        $routes = array_slice($routes, 0, $limit);
+        $totalRoutes = count($routes);
+        $page = (int) $request->get('page', 1);
+        $offset = ($page - 1) * $limit;
 
-        return Response::text(json_encode([
-            'total' => count($routes),
-            'limit' => $limit,
-            'routes' => $routes,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        // Apply pagination
+        $paginatedRoutes = array_slice($routes, $offset, $limit);
+        $totalPages = (int) ceil($totalRoutes / $limit);
+
+        $response = [
+            'total' => $totalRoutes,
+            'per_page' => $limit,
+            'current_page' => $page,
+            'last_page' => $totalPages,
+            'from' => $offset + 1,
+            'to' => min($offset + $limit, $totalRoutes),
+            'routes' => $paginatedRoutes,
+        ];
+
+        // Add pagination links
+        $response['links'] = $this->generatePaginationLinks($page, $totalPages);
+        $response['meta'] = [
+            'current_page' => $page,
+            'from' => $offset + 1,
+            'last_page' => $totalPages,
+            'per_page' => $limit,
+            'to' => min($offset + $limit, $totalRoutes),
+            'total' => $totalRoutes,
+        ];
+
+        return Response::text(json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     public function schema(JsonSchema $schema): array
@@ -137,6 +159,9 @@ class ListApiRoutes extends Tool
             'limit' => $schema->integer()
                 ->description('Maximum number of routes to return (default: 50, max: 200)')
                 ->default(50),
+            'page' => $schema->integer()
+                ->description('Page number for pagination (default: 1)')
+                ->default(1),
             'group_by' => $schema->string()
                 ->description('Group routes by: controller, prefix, or version')
                 ->enum(['controller', 'prefix', 'version']),

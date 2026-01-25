@@ -542,7 +542,7 @@
       "Probar ordenamiento múltiple",
       "Verificar que los resultados están ordenados correctamente"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
