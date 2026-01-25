@@ -31,3 +31,6 @@ testbench.yaml
 !/docs/*.md
 /coverage
 /flow
+prd.json
+progress.txt
+api.json
