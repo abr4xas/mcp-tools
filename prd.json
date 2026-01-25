@@ -390,7 +390,7 @@
       "Verificar que se pueden listar versiones",
       "Probar restauración de versión anterior"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "validation",

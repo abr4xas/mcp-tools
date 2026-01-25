@@ -24,5 +24,43 @@ class McpToolsServiceProvider extends PackageServiceProvider
             ->hasCommand(ClearCacheCommand::class)
             ->hasCommand(ExportOpenApiCommand::class)
             ->hasCommand(ContractVersionCommand::class);
+
+        // Validate configuration on boot
+        $this->validateConfiguration();
+    }
+
+    /**
+     * Validate package configuration
+     */
+    protected function validateConfiguration(): void
+    {
+        $contractPath = storage_path('api-contracts');
+        $contractFile = "{$contractPath}/api.json";
+
+        // Check if contract directory is writable
+        if (File::exists($contractPath) && ! is_writable($contractPath)) {
+            \Log::warning('MCP Tools: Contract directory is not writable', ['path' => $contractPath]);
+        }
+
+        // Validate contract file if it exists
+        if (File::exists($contractFile)) {
+            $content = File::get($contractFile);
+            $contract = json_decode($content, true);
+            if (! is_array($contract)) {
+                \Log::warning('MCP Tools: Contract file is not valid JSON', ['path' => $contractFile]);
+            }
+        }
+
+        // Check required directories
+        $requiredDirs = [
+            app_path('Http/Controllers'),
+            app_path('Http/Resources'),
+        ];
+
+        foreach ($requiredDirs as $dir) {
+            if (! File::exists($dir)) {
+                \Log::warning('MCP Tools: Required directory does not exist', ['path' => $dir]);
+            }
+        }
     }
 }
