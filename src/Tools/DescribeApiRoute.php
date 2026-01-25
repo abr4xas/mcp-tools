@@ -183,22 +183,47 @@ class DescribeApiRoute extends Tool
      */
     protected function matchesRoutePattern(string $pattern, string $path): bool
     {
+        // Normalize paths
+        $pattern = '/' . trim($pattern, '/');
+        $path = '/' . trim($path, '/');
+
+        // Handle exact match first
+        if ($pattern === $path) {
+            return true;
+        }
+
         // Escape special regex characters except our placeholders
         $escaped = preg_quote($pattern, '#');
 
         // Replace {param?} with optional segment (?:/[^/]+)?
-        // We need to match \{param\?\} literal from preg_quote output.
-        // Regex needs to match literal \ then literal ? So \\ \? -> \\\?
-        // PHP string needs \\\\ \\? -> \\\\\\?
-        $escaped = preg_replace('#\\\\\{([^}]+)\\\\\\?\}#', '(?:/[^/]+)?', $escaped);
+        // Handle optional parameters with constraints: {param?} or {param:constraint?}
+        $escaped = preg_replace('#\\\\\{([^}:]+)(?::([^}]+))?\\\\\?\}#', '(?:/[^/]+)?', $escaped);
+
+        // Replace {param:constraint} with constrained segment
+        // e.g., {id:number} -> \d+ or {slug:alpha} -> [a-zA-Z]+
+        $escaped = preg_replace_callback(
+            '#\\\\\{([^}:]+):([^}]+)\\\\}#',
+            function ($matches) {
+                $constraint = $matches[2] ?? '';
+                return match (strtolower($constraint)) {
+                    'number', 'int', 'integer' => '\d+',
+                    'alpha' => '[a-zA-Z]+',
+                    'alphanum', 'alphanumeric' => '[a-zA-Z0-9]+',
+                    'uuid' => '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+                    default => '[^/]+',
+                };
+            },
+            $escaped
+        );
 
         // Replace {param} with required segment [^/]+
-        // Match \{param\} literal. Regex \\ \{ ... \\ \}
         $escaped = preg_replace('#\\\\\{([^}]+)\\\\}#', '[^/]+', (string) $escaped);
 
-        // Handle case where {param} might be at start or have no leading slash in pattern?
-        // Usually /api/v1/posts/{post} -> /api/v1/posts/[^/]+
+        // Handle multiple parameters and edge cases
+        // Support for paths with dots, dashes, etc.
+        $escaped = str_replace(['\.', '\-'], ['.', '-'], $escaped);
 
-        return (bool) preg_match('#^' . $escaped . '$#', $path);
+        // Match with case-insensitive option for better matching
+        return (bool) preg_match('#^' . $escaped . '$#i', $path);
     }
 }
