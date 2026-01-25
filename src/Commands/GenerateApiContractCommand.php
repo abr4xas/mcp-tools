@@ -6,6 +6,7 @@ use Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
 use Abr4xas\McpTools\Analyzers\PhpDocAnalyzer;
 use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
 use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
+use Abr4xas\McpTools\Services\AstCacheService;
 use Abr4xas\McpTools\Exceptions\AnalysisException;
 use Abr4xas\McpTools\Exceptions\FormRequestAnalysisException;
 use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
@@ -36,17 +37,21 @@ class GenerateApiContractCommand extends Command
 
     protected PhpDocAnalyzer $phpDocAnalyzer;
 
+    protected AstCacheService $astCache;
+
     public function __construct(
         RouteAnalyzer $routeAnalyzer,
         FormRequestAnalyzer $formRequestAnalyzer,
         ResourceAnalyzer $resourceAnalyzer,
-        PhpDocAnalyzer $phpDocAnalyzer
+        PhpDocAnalyzer $phpDocAnalyzer,
+        AstCacheService $astCache
     ) {
         parent::__construct();
         $this->routeAnalyzer = $routeAnalyzer;
         $this->formRequestAnalyzer = $formRequestAnalyzer;
         $this->resourceAnalyzer = $resourceAnalyzer;
         $this->phpDocAnalyzer = $phpDocAnalyzer;
+        $this->astCache = $astCache;
     }
 
     public function handle(): int
@@ -453,6 +458,14 @@ class GenerateApiContractCommand extends Command
                 return null;
             }
 
+            // Check AST cache first
+            if ($this->astCache->has($fileName)) {
+                $cached = $this->astCache->get($fileName);
+                if (isset($cached['resources'][$reflection->getName()])) {
+                    return $cached['resources'][$reflection->getName()];
+                }
+            }
+
             $content = file_get_contents($fileName);
             if ($content === false) {
                 return null;
@@ -540,14 +553,33 @@ class GenerateApiContractCommand extends Command
                 $resourceName = $matches[1];
                 $fullClass = $this->findFullClassName($reflection, $resourceName);
                 if ($fullClass && class_exists($fullClass)) {
+                    // Cache result
+                    $this->cacheAstResult($fileName, $reflection->getName(), $fullClass);
                     return $fullClass;
                 }
             }
+
+            // Cache negative result
+            $this->cacheAstResult($fileName, $reflection->getName(), null);
         } catch (Throwable $e) {
             $this->warn("Could not extract resource from method body: {$e->getMessage()}");
         }
 
         return null;
+    }
+
+    /**
+     * Cache AST analysis result
+     */
+    protected function cacheAstResult(string $fileName, string $methodName, ?string $resourceClass): void
+    {
+        try {
+            $cached = $this->astCache->get($fileName) ?? ['resources' => []];
+            $cached['resources'][$methodName] = $resourceClass;
+            $this->astCache->put($fileName, $cached);
+        } catch (Throwable) {
+            // Ignore cache errors
+        }
     }
 
     /**

@@ -345,7 +345,7 @@
       "Verificar que las relaciones se documentan correctamente",
       "Probar con múltiples niveles de anidamiento"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
