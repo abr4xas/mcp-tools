@@ -120,7 +120,7 @@
       "Probar con diferentes configuraciones de rate limit",
       "Verificar que los valores aparecen correctamente en describe-api-route"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -135,7 +135,7 @@
       "Probar con controladores que usan Request directamente",
       "Verificar que los parámetros aparecen en el contrato"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -150,7 +150,7 @@
       "Verificar que los ejemplos son válidos según el schema",
       "Incluir ejemplos en describe-api-route"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
