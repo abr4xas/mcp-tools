@@ -3,6 +3,7 @@
 namespace Abr4xas\McpTools\Commands;
 
 use Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
+use Abr4xas\McpTools\Analyzers\PhpDocAnalyzer;
 use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
 use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
 use Abr4xas\McpTools\Exceptions\AnalysisException;
@@ -33,15 +34,19 @@ class GenerateApiContractCommand extends Command
 
     protected ResourceAnalyzer $resourceAnalyzer;
 
+    protected PhpDocAnalyzer $phpDocAnalyzer;
+
     public function __construct(
         RouteAnalyzer $routeAnalyzer,
         FormRequestAnalyzer $formRequestAnalyzer,
-        ResourceAnalyzer $resourceAnalyzer
+        ResourceAnalyzer $resourceAnalyzer,
+        PhpDocAnalyzer $phpDocAnalyzer
     ) {
         parent::__construct();
         $this->routeAnalyzer = $routeAnalyzer;
         $this->formRequestAnalyzer = $formRequestAnalyzer;
         $this->resourceAnalyzer = $resourceAnalyzer;
+        $this->phpDocAnalyzer = $phpDocAnalyzer;
     }
 
     public function handle(): int
@@ -85,7 +90,11 @@ class GenerateApiContractCommand extends Command
 
                     $responseSchema = $this->extractResponseSchema($action, $normalizedUri);
 
+                    // Extract PHPDoc description
+                    $description = $this->extractDescription($action, $method);
+
                     $contract[$normalizedUri][$method] = [
+                        'description' => $description,
                         'auth' => $auth,
                         'path_parameters' => $pathParams,
                         'request_schema' => $requestSchema,
@@ -567,6 +576,32 @@ class GenerateApiContractCommand extends Command
         }
 
         return null;
+    }
+
+    /**
+     * Extract description from PHPDoc of controller method
+     *
+     * @param  mixed  $action
+     * @param  string  $method
+     * @return string|null
+     */
+    private function extractDescription($action, string $method): ?string
+    {
+        if (! is_string($action) || ! Str::contains($action, '@')) {
+            return null;
+        }
+
+        try {
+            [$controller, $controllerMethod] = explode('@', $action);
+            $this->routeAnalyzer->validateRouteAction($action);
+            $reflection = $this->routeAnalyzer->getReflectionMethod($controller, $controllerMethod, "{$controller}::{$controllerMethod}");
+
+            $phpDoc = $this->phpDocAnalyzer->extractFromMethod($reflection);
+
+            return $phpDoc['description'];
+        } catch (Throwable) {
+            return null;
+        }
     }
 
 }
