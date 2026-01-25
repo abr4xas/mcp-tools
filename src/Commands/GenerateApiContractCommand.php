@@ -8,6 +8,8 @@ use Abr4xas\McpTools\Analyzers\ResponseCodeAnalyzer;
 use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
 use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
 use Abr4xas\McpTools\Services\AstCacheService;
+use Abr4xas\McpTools\Services\JsonSchemaValidator;
+use Abr4xas\McpTools\Services\SchemaTransformerRegistry;
 use Abr4xas\McpTools\Exceptions\AnalysisException;
 use Abr4xas\McpTools\Exceptions\FormRequestAnalysisException;
 use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
@@ -171,8 +173,18 @@ class GenerateApiContractCommand extends Command
 
                     $isQuery = in_array($method, $queryMethods, true);
                     $requestSchema = $this->extractRequestSchema($action, $isQuery);
+                    
+                    // Apply schema transformers
+                    if (! empty($requestSchema['properties'])) {
+                        $requestSchema['properties'] = $this->transformerRegistry->apply($requestSchema['properties']);
+                    }
 
                     $responseSchema = $this->extractResponseSchema($action, $normalizedUri);
+                    
+                    // Apply schema transformers to response
+                    if (! empty($responseSchema) && ! isset($responseSchema['undocumented'])) {
+                        $responseSchema = $this->transformerRegistry->apply($responseSchema);
+                    }
 
                     // Extract PHPDoc description and deprecated status
                     $descriptionData = $this->extractDescription($action, $method);
