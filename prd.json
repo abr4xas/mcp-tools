@@ -703,7 +703,7 @@
       "Verificar que los formatos se detectan correctamente",
       "Probar con formatos personalizados"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "validation",
@@ -932,7 +932,7 @@
       "Ejecutar tests y verificar que pasan",
       "Verificar que los casos edge se manejan correctamente"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -960,7 +960,7 @@
       "Ejecutar tests y verificar que pasan",
       "Verificar que los tests son más rápidos"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -1002,7 +1002,7 @@
       "Probar en pipeline de CI",
       "Verificar que la validación funciona correctamente"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "integration",
@@ -1030,7 +1030,7 @@
       "Verificar que previene commits inválidos",
       "Documentar cómo usar el hook"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -1044,7 +1044,7 @@
       "Revisar y mejorar formato",
       "Verificar que todos los ejemplos son correctos"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -1058,7 +1058,7 @@
       "Verificar que la documentación es completa",
       "Actualizar documentación con cada release"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -1072,7 +1072,7 @@
       "Verificar que los ejemplos son correctos y funcionan",
       "Probar todos los ejemplos"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
@@ -1240,7 +1240,7 @@
       "Revisar y mejorar documentación",
       "Actualizar con nuevas optimizaciones"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
