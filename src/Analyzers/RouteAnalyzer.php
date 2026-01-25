@@ -22,9 +22,9 @@ class RouteAnalyzer
         $this->cacheService = $cacheService;
     }
 
-    public function extractPathParams(string $uri): array
+    public function extractPathParams(string $uri, $action = null): array
     {
-        $cacheKey = 'path_params:' . $uri;
+        $cacheKey = 'path_params:' . $uri . ($action ? ':' . md5((string) $action) : '');
         if ($this->cacheService->has('route', $cacheKey)) {
             return $this->cacheService->get('route', $cacheKey);
         }
@@ -32,15 +32,111 @@ class RouteAnalyzer
         preg_match_all('/\{(\w+)\??\}/', $uri, $matches);
 
         $params = [];
-        foreach ($matches[1] as $param) {
-            $params[$param] = [
-                'type' => 'string', // Default type, can be improved with route model binding detection
+        foreach ($matches[1] as $paramName) {
+            $type = $this->detectParamType($paramName, $action);
+            $params[$paramName] = [
+                'type' => $type,
             ];
         }
 
         $this->cacheService->put('route', $cacheKey, $params);
 
         return $params;
+    }
+
+    /**
+     * Detect parameter type from route model binding
+     *
+     * @param  mixed  $action
+     */
+    protected function detectParamType(string $paramName, $action): string
+    {
+        // Default to string
+        $type = 'string';
+
+        if (! $action || ! is_string($action) || ! str_contains($action, '@')) {
+            return $type;
+        }
+
+        try {
+            [$controller, $method] = explode('@', $action);
+            if (! class_exists($controller)) {
+                return $type;
+            }
+
+            $reflection = new \ReflectionMethod($controller, $method);
+            foreach ($reflection->getParameters() as $param) {
+                if ($param->getName() === $paramName) {
+                    $paramType = $param->getType();
+                    if ($paramType instanceof \ReflectionNamedType) {
+                        $typeName = $paramType->getName();
+                        
+                        // Check if it's a model (route model binding)
+                        if (class_exists($typeName)) {
+                            // Check if it's an Eloquent model
+                            if (is_subclass_of($typeName, \Illuminate\Database\Eloquent\Model::class)) {
+                                // Try to infer type from model's primary key
+                                try {
+                                    $model = new $typeName();
+                                    $keyType = $model->getKeyType();
+                                    $type = match ($keyType) {
+                                        'int' => 'integer',
+                                        'string' => 'string',
+                                        default => 'string',
+                                    };
+                                } catch (\Throwable) {
+                                    // Default to integer for models (most common)
+                                    $type = 'integer';
+                                }
+                            } else {
+                                // Type hint exists but not a model
+                                $type = match ($typeName) {
+                                    'int', 'integer' => 'integer',
+                                    'float', 'double' => 'number',
+                                    'bool', 'boolean' => 'boolean',
+                                    default => 'string',
+                                };
+                            }
+                        } else {
+                            // Built-in type
+                            $type = match ($typeName) {
+                                'int', 'integer' => 'integer',
+                                'float', 'double' => 'number',
+                                'bool', 'boolean' => 'boolean',
+                                default => 'string',
+                            };
+                        }
+                    }
+                    break;
+                }
+            }
+
+            // If no type hint, try to infer from parameter name
+            if ($type === 'string') {
+                $type = $this->inferTypeFromName($paramName);
+            }
+        } catch (\Throwable) {
+            // Fallback to inference from name
+            $type = $this->inferTypeFromName($paramName);
+        }
+
+        return $type;
+    }
+
+    /**
+     * Infer type from parameter name
+     */
+    protected function inferTypeFromName(string $paramName): string
+    {
+        // Common patterns: id, uuid, slug, etc.
+        if (preg_match('/\b(id|uuid)\b/i', $paramName)) {
+            return 'integer';
+        }
+        if (preg_match('/\b(slug|hash|token)\b/i', $paramName)) {
+            return 'string';
+        }
+
+        return 'string';
     }
 
     public function determineAuth(Route $route): array

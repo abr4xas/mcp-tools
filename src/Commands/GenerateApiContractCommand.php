@@ -79,7 +79,7 @@ class GenerateApiContractCommand extends Command
                 $this->output->write("Processing {$method} {$normalizedUri} ... ");
 
                 try {
-                    $pathParams = $this->routeAnalyzer->extractPathParams($normalizedUri);
+                    $pathParams = $this->routeAnalyzer->extractPathParams($normalizedUri, $action);
                     $auth = $this->routeAnalyzer->determineAuth($route);
                     $customHeaders = $this->routeAnalyzer->extractCustomHeaders($route);
                     $rateLimit = $this->routeAnalyzer->extractRateLimit($route);

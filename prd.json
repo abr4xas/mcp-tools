@@ -211,7 +211,7 @@
       "Probar agrupación por prefijo",
       "Verificar que la estructura de agrupación es clara"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
@@ -226,7 +226,7 @@
       "Verificar que las descripciones aparecen correctamente",
       "Probar con métodos sin PHPDoc y verificar que no falla"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
