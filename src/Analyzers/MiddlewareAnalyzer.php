@@ -132,4 +132,53 @@ class MiddlewareAnalyzer
 
         return 'other';
     }
+
+    /**
+     * Extract required headers from middleware
+     *
+     * @return array<int, array{name: string, required: bool, description: string}>
+     */
+    public function extractRequiredHeaders(array $middlewares): array
+    {
+        $headers = [];
+
+        foreach ($middlewares as $middleware) {
+            $name = is_string($middleware) ? $middleware : get_class($middleware);
+            $nameLower = mb_strtolower($name);
+
+            // CORS headers
+            if (Str::contains($nameLower, 'cors')) {
+                $headers[] = [
+                    'name' => 'Origin',
+                    'required' => false,
+                    'description' => 'Origin header for CORS requests',
+                ];
+                $headers[] = [
+                    'name' => 'Access-Control-Request-Method',
+                    'required' => false,
+                    'description' => 'CORS preflight request method',
+                ];
+            }
+
+            // Rate limiting headers
+            if (Str::contains($nameLower, 'throttle') || Str::contains($nameLower, 'rate')) {
+                $headers[] = [
+                    'name' => 'X-RateLimit-Limit',
+                    'required' => false,
+                    'description' => 'Rate limit information',
+                ];
+            }
+
+            // Custom API key headers
+            if (Str::contains($nameLower, 'apikey') || Str::contains($nameLower, 'api-key')) {
+                $headers[] = [
+                    'name' => 'X-API-Key',
+                    'required' => true,
+                    'description' => 'API key for authentication',
+                ];
+            }
+        }
+
+        return $headers;
+    }
 }

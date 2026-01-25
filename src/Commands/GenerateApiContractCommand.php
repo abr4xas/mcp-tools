@@ -192,6 +192,9 @@ class GenerateApiContractCommand extends Command
                         $statusCodes = [200 => 'OK', 400 => 'Bad Request', 404 => 'Not Found', 500 => 'Internal Server Error'];
                     }
 
+                    // Extract response headers
+                    $responseHeaders = $this->extractResponseHeaders($responseSchema, $routeData);
+
                     $contract[$normalizedUri][$method] = [
                         'description' => $description,
                         'deprecated' => $deprecated,
@@ -199,6 +202,7 @@ class GenerateApiContractCommand extends Command
                         'path_parameters' => $pathParams,
                         'request_schema' => $requestSchema,
                         'response_schema' => $responseSchema,
+                        'response_headers' => $responseHeaders,
                         'custom_headers' => $customHeaders,
                         'rate_limit' => $rateLimit,
                         'api_version' => $apiVersion,

@@ -367,6 +367,11 @@ class RouteAnalyzer
             ];
         }
 
+        // Extract headers from middleware
+        $middlewares = $route->gatherMiddleware();
+        $middlewareHeaders = $this->middlewareAnalyzer->extractRequiredHeaders($middlewares);
+        $headers = array_merge($headers, $middlewareHeaders);
+
         return $headers;
     }
 
