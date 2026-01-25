@@ -481,7 +481,7 @@
       "Verificar que la barra de progreso funciona correctamente",
       "Verificar que no afecta el rendimiento"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",

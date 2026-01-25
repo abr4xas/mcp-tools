@@ -27,7 +27,8 @@ class GenerateApiContractCommand extends Command
 {
     protected $signature = 'api:contract:generate 
                             {--incremental : Only update routes that have been modified}
-                            {--log : Enable detailed logging for debugging}';
+                            {--log : Enable detailed logging for debugging}
+                            {--dry-run : Validate and show summary without writing file}';
 
     protected $description = 'Generate a public-facing API contract for MCP consumption';
 
@@ -60,8 +61,11 @@ class GenerateApiContractCommand extends Command
     {
         $incremental = $this->option('incremental');
         $enableLogging = $this->option('log');
+        $dryRun = $this->option('dry-run');
         
-        if ($incremental) {
+        if ($dryRun) {
+            $this->info('Running in dry-run mode (no file will be written)...');
+        } elseif ($incremental) {
             $this->info('Generating API contract (incremental mode)...');
         } else {
             $this->info('Generating API contract...');
@@ -242,6 +246,33 @@ class GenerateApiContractCommand extends Command
         $progressBar->finish();
         $this->newLine(2);
 
+        // Show summary
+        $totalRoutes = 0;
+        foreach ($contract as $methods) {
+            $totalRoutes += count($methods);
+        }
+
+        $this->newLine();
+        $this->info('Summary:');
+        $this->line("  Total routes: {$totalRoutes}");
+        $this->line('  Errors: ' . count($errors));
+
+        if ($dryRun) {
+            $this->newLine();
+            $this->warn('DRY RUN MODE: No file was written.');
+            $this->info('The contract would be generated with the above summary.');
+            
+            if (! empty($errors)) {
+                $this->newLine();
+                $this->warn('Errors that would be included:');
+                foreach ($errors as $error) {
+                    $this->line("  - {$error['route']}: [{$error['error_code']}] {$error['message']}");
+                }
+            }
+
+            return empty($errors) ? self::SUCCESS : self::FAILURE;
+        }
+
         $directory = storage_path('api-contracts');
         if (! File::exists($directory)) {
             File::makeDirectory($directory, 0755, true);
@@ -259,6 +290,14 @@ class GenerateApiContractCommand extends Command
             File::copy($fullPath, "{$versionsDir}/{$versionName}");
         }
 
+        // Add metadata
+        $metadata = [
+            'generated_at' => now()->toIso8601String(),
+            'git_commit' => $this->getGitCommit(),
+            'version' => '1.0.0',
+        ];
+        $contract['_metadata'] = $metadata;
+
         $json = json_encode($contract, JSON_UNESCAPED_SLASHES);
 
         if ($json === false) {
@@ -269,16 +308,6 @@ class GenerateApiContractCommand extends Command
         }
 
         File::put($fullPath, $json);
-
-        // Add metadata
-        $metadata = [
-            'generated_at' => now()->toIso8601String(),
-            'git_commit' => $this->getGitCommit(),
-            'version' => '1.0.0',
-        ];
-        $contract['_metadata'] = $metadata;
-        $jsonWithMetadata = json_encode($contract, JSON_UNESCAPED_SLASHES);
-        File::put($fullPath, $jsonWithMetadata);
 
         $this->info("Contract generated at: {$fullPath}");
 
