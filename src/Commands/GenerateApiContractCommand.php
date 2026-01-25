@@ -25,7 +25,7 @@ use Throwable;
 
 class GenerateApiContractCommand extends Command
 {
-    protected $signature = 'api:contract:generate';
+    protected $signature = 'api:contract:generate {--incremental : Only update routes that have been modified}';
 
     protected $description = 'Generate a public-facing API contract for MCP consumption';
 
@@ -56,15 +56,32 @@ class GenerateApiContractCommand extends Command
 
     public function handle(): int
     {
-        $this->info('Generating API contract...');
+        $incremental = $this->option('incremental');
+        
+        if ($incremental) {
+            $this->info('Generating API contract (incremental mode)...');
+        } else {
+            $this->info('Generating API contract...');
+        }
 
         // Optimization: Pre-scan resources to avoid File scanning inside the loop
         $this->resourceAnalyzer->preloadResources();
 
+        // Load existing contract if incremental
+        $existingContract = [];
+        $contractPath = storage_path('api-contracts/api.json');
+        if ($incremental && File::exists($contractPath)) {
+            $existing = json_decode(File::get($contractPath), true);
+            if (is_array($existing)) {
+                $existingContract = $existing;
+            }
+        }
+
         $routes = Route::getRoutes()->getRoutes();
-        $contract = [];
+        $contract = $incremental ? $existingContract : [];
         $queryMethods = ['GET', 'HEAD', 'DELETE'];
         $errors = [];
+        $modifiedFiles = $this->getModifiedFiles($incremental);
 
         foreach ($routes as $route) {
             $uri = $route->uri();
@@ -82,6 +99,12 @@ class GenerateApiContractCommand extends Command
                 }
 
                 $this->output->write("Processing {$method} {$normalizedUri} ... ");
+
+                // Skip if incremental and route hasn't changed
+                if ($incremental && ! $this->shouldUpdateRoute($normalizedUri, $method, $action, $existingContract, $modifiedFiles)) {
+                    $this->output->writeln('Skipped (unchanged).');
+                    continue;
+                }
 
                 try {
                     $pathParams = $this->routeAnalyzer->extractPathParams($normalizedUri, $action);

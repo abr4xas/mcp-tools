@@ -360,7 +360,7 @@
       "Verificar que la funcionalidad se mantiene",
       "Medir mejora en tiempo de análisis"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
