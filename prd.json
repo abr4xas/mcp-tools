@@ -300,7 +300,7 @@
       "Verificar que las reglas aparecen en el contrato",
       "Probar con diferentes tipos de reglas personalizadas"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "validation",

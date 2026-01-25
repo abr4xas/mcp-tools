@@ -231,6 +231,7 @@ class FormRequestAnalyzer
 
             $type = 'string';
             $required = false;
+            $conditional = null;
 
             foreach ($ruleParts as $part) {
                 if (! is_string($part)) {
@@ -241,6 +242,43 @@ class FormRequestAnalyzer
 
                 if ($part === 'required') {
                     $required = true;
+                } elseif ($part === 'sometimes') {
+                    // Field is optional conditionally
+                    $conditional = ['type' => 'sometimes', 'message' => 'Field is optional but validated if present'];
+                } elseif (Str::startsWith($part, 'required_if:')) {
+                    // required_if:other_field,value
+                    $condition = substr($part, 12);
+                    $parts = explode(',', $condition, 2);
+                    $conditional = [
+                        'type' => 'required_if',
+                        'field' => $parts[0] ?? '',
+                        'value' => $parts[1] ?? null,
+                        'message' => "Required if {$parts[0]} equals " . ($parts[1] ?? 'specified value'),
+                    ];
+                } elseif (Str::startsWith($part, 'required_unless:')) {
+                    // required_unless:other_field,value
+                    $condition = substr($part, 16);
+                    $parts = explode(',', $condition, 2);
+                    $conditional = [
+                        'type' => 'required_unless',
+                        'field' => $parts[0] ?? '',
+                        'value' => $parts[1] ?? null,
+                        'message' => "Required unless {$parts[0]} equals " . ($parts[1] ?? 'specified value'),
+                    ];
+                } elseif (Str::startsWith($part, 'required_with:')) {
+                    $fields = substr($part, 14);
+                    $conditional = [
+                        'type' => 'required_with',
+                        'fields' => explode(',', $fields),
+                        'message' => "Required when any of these fields are present: {$fields}",
+                    ];
+                } elseif (Str::startsWith($part, 'required_without:')) {
+                    $fields = substr($part, 17);
+                    $conditional = [
+                        'type' => 'required_without',
+                        'fields' => explode(',', $fields),
+                        'message' => "Required when none of these fields are present: {$fields}",
+                    ];
                 } elseif ($part === 'integer' || $part === 'int') {
                     $type = 'integer';
                 } elseif (in_array($part, ['numeric', 'float', 'double'], true)) {
@@ -285,19 +323,21 @@ class FormRequestAnalyzer
                 }
             }
 
+            $fieldData = [
+                'type' => $type,
+                'required' => $required,
+                'constraints' => $constraints,
+            ];
+
+            if ($conditional !== null) {
+                $fieldData['conditional'] = $conditional;
+            }
+
             // Handle nested structures
             if (Str::contains($transformedField, '[') && Str::contains($transformedField, ']')) {
-                $this->setNestedField($schema, $transformedField, [
-                    'type' => $type,
-                    'required' => $required,
-                    'constraints' => $constraints,
-                ]);
+                $this->setNestedField($schema, $transformedField, $fieldData);
             } else {
-                $schema[$transformedField] = [
-                    'type' => $type,
-                    'required' => $required,
-                    'constraints' => $constraints,
-                ];
+                $schema[$transformedField] = $fieldData;
             }
         }
 
