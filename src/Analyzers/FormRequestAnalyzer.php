@@ -21,17 +21,17 @@ class FormRequestAnalyzer
     {
         $this->cacheService = $cacheService;
     }
+
     /**
      * Extract request schema from FormRequest
      *
-     * @param  string  $formRequestClass
-     * @param  bool  $isQuery
      * @return array{location: string, properties: array}
+     *
      * @throws FormRequestAnalysisException
      */
     public function extractSchema(string $formRequestClass, bool $isQuery): array
     {
-        $cacheKey = $formRequestClass . ':' . ($isQuery ? 'query' : 'body');
+        $cacheKey = $formRequestClass.':'.($isQuery ? 'query' : 'body');
 
         // Check cache with file modification time validation
         try {
@@ -59,7 +59,7 @@ class FormRequestAnalyzer
         }
 
         try {
-            $formRequest = new $formRequestClass();
+            $formRequest = new $formRequestClass;
         } catch (Throwable $e) {
             throw FormRequestAnalysisException::instantiationFailed($formRequestClass, $e->getMessage(), $e);
         }
@@ -172,13 +172,12 @@ class FormRequestAnalyzer
     /**
      * Extract query parameters from controller method without FormRequest
      *
-     * @param  \ReflectionMethod  $reflection
      * @return array<string, array{type: string, required: bool, constraints: array<string>}>
      */
     public function extractQueryParamsFromMethod(\ReflectionMethod $reflection): array
     {
         $params = [];
-        $phpDoc = $this->cacheService->get('form_request', 'phpdoc:' . $reflection->getName());
+        $phpDoc = $this->cacheService->get('form_request', 'phpdoc:'.$reflection->getName());
 
         // Try to extract from PHPDoc @param tags
         $docComment = $reflection->getDocComment();
@@ -306,7 +305,7 @@ class FormRequestAnalyzer
                         'type' => 'required_if',
                         'field' => $parts[0] ?? '',
                         'value' => $parts[1] ?? null,
-                        'message' => "Required if {$parts[0]} equals " . ($parts[1] ?? 'specified value'),
+                        'message' => "Required if {$parts[0]} equals ".($parts[1] ?? 'specified value'),
                     ];
                 } elseif (Str::startsWith($part, 'required_unless:')) {
                     // required_unless:other_field,value
@@ -316,7 +315,7 @@ class FormRequestAnalyzer
                         'type' => 'required_unless',
                         'field' => $parts[0] ?? '',
                         'value' => $parts[1] ?? null,
-                        'message' => "Required unless {$parts[0]} equals " . ($parts[1] ?? 'specified value'),
+                        'message' => "Required unless {$parts[0]} equals ".($parts[1] ?? 'specified value'),
                     ];
                 } elseif (Str::startsWith($part, 'required_with:')) {
                     $fields = substr($part, 14);
@@ -356,7 +355,7 @@ class FormRequestAnalyzer
                                 $values[] = $case->getName();
                             }
                         }
-                        $constraints[] = 'enum_values: ' . implode(',', $values);
+                        $constraints[] = 'enum_values: '.implode(',', $values);
                     } catch (\Throwable) {
                         // Ignore enum extraction errors
                     }
@@ -370,25 +369,25 @@ class FormRequestAnalyzer
                     $constraints[] = 'date';
                 } elseif (Str::startsWith($part, 'date_format:')) {
                     $format = substr($part, 12);
-                    $constraints[] = 'date_format: ' . $format;
+                    $constraints[] = 'date_format: '.$format;
                 } elseif (Str::startsWith($part, 'file') || Str::startsWith($part, 'image')) {
                     $constraints[] = 'file_upload';
                     $type = 'file';
                 } elseif (Str::startsWith($part, 'mimes:')) {
                     $mimes = substr($part, 6);
-                    $constraints[] = 'mime_types: ' . $mimes;
+                    $constraints[] = 'mime_types: '.$mimes;
                     $type = 'file';
                 } elseif (Str::startsWith($part, 'max:')) {
                     $maxSize = substr($part, 4);
                     if ($type === 'file') {
-                        $constraints[] = 'max_file_size: ' . $maxSize;
+                        $constraints[] = 'max_file_size: '.$maxSize;
                     }
                 } elseif (Str::startsWith($part, 'min:')) {
                     $constraints[] = $part;
                 } elseif (Str::startsWith($part, 'max:')) {
                     $constraints[] = $part;
                 } elseif (Str::startsWith($part, 'in:')) {
-                    $constraints[] = 'enum: ' . mb_substr($part, 3);
+                    $constraints[] = 'enum: '.mb_substr($part, 3);
                 } elseif (Str::startsWith($part, 'regex:')) {
                     $constraints[] = $part;
                 } elseif (Str::startsWith($part, 'exists:')) {
@@ -397,14 +396,14 @@ class FormRequestAnalyzer
                     $constraints[] = $part;
                 } elseif (class_exists($part) && is_subclass_of($part, \Illuminate\Contracts\Validation\Rule::class)) {
                     // Custom validation rule class
-                    $constraints[] = 'custom_rule:' . $part;
+                    $constraints[] = 'custom_rule:'.$part;
                 } elseif (Str::contains($part, '\\') && class_exists($part)) {
                     // Custom rule class (full namespace)
-                    $constraints[] = 'custom_rule:' . $part;
+                    $constraints[] = 'custom_rule:'.$part;
                 } elseif (! in_array($part, ['required', 'integer', 'int', 'numeric', 'float', 'double', 'boolean', 'bool', 'array', 'string', 'email', 'url', 'uuid', 'date'], true)) {
                     // Unknown rule - likely custom
                     if (! Str::startsWith($part, 'min:') && ! Str::startsWith($part, 'max:') && ! Str::startsWith($part, 'in:') && ! Str::startsWith($part, 'regex:') && ! Str::startsWith($part, 'exists:') && ! Str::startsWith($part, 'unique:')) {
-                        $constraints[] = 'custom:' . $part;
+                        $constraints[] = 'custom:'.$part;
                     }
                 }
             }
@@ -440,20 +439,20 @@ class FormRequestAnalyzer
     public function parseNestedStructures(array $rules): array
     {
         $schema = [];
-        
+
         foreach ($rules as $field => $rule) {
             $parts = explode('.', (string) $field);
             $current = &$schema;
-            
+
             foreach ($parts as $index => $part) {
                 $isLast = $index === count($parts) - 1;
-                
+
                 if ($isLast) {
                     // Last part - set the value
                     $ruleParts = is_string($rule) ? explode('|', $rule) : (is_array($rule) ? $rule : []);
                     $type = $this->inferTypeFromRules($ruleParts);
                     $required = in_array('required', $ruleParts, true);
-                    
+
                     $current[$part] = [
                         'type' => $type,
                         'required' => $required,
@@ -474,7 +473,7 @@ class FormRequestAnalyzer
                 }
             }
         }
-        
+
         return $schema;
     }
 
@@ -499,7 +498,7 @@ class FormRequestAnalyzer
                 return 'array';
             }
         }
-        
+
         return 'string';
     }
 
@@ -512,16 +511,16 @@ class FormRequestAnalyzer
     protected function extractConstraints(array $ruleParts): array
     {
         $constraints = [];
-        
+
         foreach ($ruleParts as $part) {
             if (in_array($part, ['email', 'url', 'uuid', 'date'], true)) {
                 $constraints[] = $part;
-            } elseif (Str::startsWith($part, 'min:') || Str::startsWith($part, 'max:') || 
+            } elseif (Str::startsWith($part, 'min:') || Str::startsWith($part, 'max:') ||
                       Str::startsWith($part, 'in:') || Str::startsWith($part, 'regex:')) {
                 $constraints[] = $part;
             }
         }
-        
+
         return $constraints;
     }
 
@@ -541,7 +540,7 @@ class FormRequestAnalyzer
                 if ($part === '*') {
                     $transformed .= '[*]';
                 } else {
-                    $transformed .= '[' . $part . ']';
+                    $transformed .= '['.$part.']';
                 }
             }
 
@@ -566,6 +565,7 @@ class FormRequestAnalyzer
 
         if (empty($path)) {
             $schema[$baseField] = $value;
+
             return;
         }
 

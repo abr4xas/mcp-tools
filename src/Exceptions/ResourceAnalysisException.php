@@ -71,28 +71,28 @@ class ResourceAnalysisException extends AnalysisException
         $context = $this->getContext();
         $resourceClass = $context['resource_class'] ?? 'unknown';
         $modelClass = $context['model_class'] ?? 'unknown';
-        
+
         return match ($this->errorCode) {
-            'RESOURCE_CLASS_NOT_FOUND' => 'Check that the Resource class exists and the namespace is correct. ' .
-                "Expected class: {$resourceClass}. " .
+            'RESOURCE_CLASS_NOT_FOUND' => 'Check that the Resource class exists and the namespace is correct. '.
+                "Expected class: {$resourceClass}. ".
                 'Run: composer dump-autoload. Verify the file exists in app/Http/Resources/',
-            'RESOURCE_MODEL_NOT_FOUND' => 'Ensure the model class exists. The resource name should map to a model (e.g., PostResource -> Post model). ' .
-                "Expected model: {$modelClass}. " .
+            'RESOURCE_MODEL_NOT_FOUND' => 'Ensure the model class exists. The resource name should map to a model (e.g., PostResource -> Post model). '.
+                "Expected model: {$modelClass}. ".
                 'Check that the model exists in app/Models/ or the configured models directory.',
-            'RESOURCE_FACTORY_FAILED' => 'Check the model factory definition. Ensure all required fields are defined and the factory can create valid instances. ' .
-                "Model: {$modelClass}, Resource: {$resourceClass}. " .
+            'RESOURCE_FACTORY_FAILED' => 'Check the model factory definition. Ensure all required fields are defined and the factory can create valid instances. '.
+                "Model: {$modelClass}, Resource: {$resourceClass}. ".
                 'Review the factory in database/factories/ and ensure it handles all required attributes.',
-            'RESOURCE_FACTORY_NOT_AVAILABLE' => 'Add the HasFactory trait to your model and create a factory. ' .
-                "Model: {$modelClass}. " .
-                'Run: php artisan make:factory ' . class_basename($modelClass) . 'Factory. ' .
+            'RESOURCE_FACTORY_NOT_AVAILABLE' => 'Add the HasFactory trait to your model and create a factory. '.
+                "Model: {$modelClass}. ".
+                'Run: php artisan make:factory '.class_basename($modelClass).'Factory. '.
                 'Then add: use Illuminate\Database\Eloquent\Factories\HasFactory; to your model.',
-            'RESOURCE_INSTANTIATION_FAILED' => 'Check that the resource constructor accepts the provided data type. ' .
-                "Resource: {$resourceClass}. " .
+            'RESOURCE_INSTANTIATION_FAILED' => 'Check that the resource constructor accepts the provided data type. '.
+                "Resource: {$resourceClass}. ".
                 'Review the resource class definition and ensure the constructor signature matches the data being passed.',
-            'RESOURCE_RESOLUTION_FAILED' => 'Ensure the resource can resolve its data. Check for any accessor issues or missing model attributes. ' .
-                "Resource: {$resourceClass}. " .
+            'RESOURCE_RESOLUTION_FAILED' => 'Ensure the resource can resolve its data. Check for any accessor issues or missing model attributes. '.
+                "Resource: {$resourceClass}. ".
                 'Common issues: accessing relationships that are not loaded, missing database columns, or accessor methods that throw exceptions.',
-            default => 'Review the Resource class and ensure it follows Laravel conventions. ' .
+            default => 'Review the Resource class and ensure it follows Laravel conventions. '.
                 'For more help: php artisan mcp-tools:health-check',
         };
     }

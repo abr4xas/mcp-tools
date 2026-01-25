@@ -8,6 +8,8 @@ use Abr4xas\McpTools\Commands\ExportOpenApiCommand;
 use Abr4xas\McpTools\Commands\GenerateApiContractCommand;
 use Abr4xas\McpTools\Commands\HealthCheckCommand;
 use Abr4xas\McpTools\Commands\MetricsCommand;
+use Abr4xas\McpTools\Commands\ViewLogsCommand;
+use Illuminate\Support\Facades\File;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 

@@ -38,7 +38,7 @@ class DescribeApiRoute extends Tool
         }
 
         // Normalize path: ensure leading slash
-        $normalizedPath = '/' . mb_ltrim($path, '/');
+        $normalizedPath = '/'.mb_ltrim($path, '/');
 
         $contract = $this->loadContract();
         if ($contract === null) {
@@ -93,7 +93,7 @@ class DescribeApiRoute extends Tool
                 continue;
             }
 
-            $normalizedPath = '/' . mb_ltrim($path, '/');
+            $normalizedPath = '/'.mb_ltrim($path, '/');
 
             foreach ($methods as $m) {
                 $m = mb_strtoupper((string) $m);
@@ -204,8 +204,8 @@ class DescribeApiRoute extends Tool
     protected function matchesRoutePattern(string $pattern, string $path): bool
     {
         // Normalize paths
-        $pattern = '/' . trim($pattern, '/');
-        $path = '/' . trim($path, '/');
+        $pattern = '/'.trim($pattern, '/');
+        $path = '/'.trim($path, '/');
 
         // Handle exact match first
         if ($pattern === $path) {
@@ -225,6 +225,7 @@ class DescribeApiRoute extends Tool
             '#\\\\\{([^}:]+):([^}]+)\\\\}#',
             function ($matches) {
                 $constraint = $matches[2] ?? '';
+
                 return match (strtolower($constraint)) {
                     'number', 'int', 'integer' => '\d+',
                     'alpha' => '[a-zA-Z]+',
@@ -244,6 +245,6 @@ class DescribeApiRoute extends Tool
         $escaped = str_replace(['\.', '\-'], ['.', '-'], $escaped);
 
         // Match with case-insensitive option for better matching
-        return (bool) preg_match('#^' . $escaped . '$#i', $path);
+        return (bool) preg_match('#^'.$escaped.'$#i', $path);
     }
 }

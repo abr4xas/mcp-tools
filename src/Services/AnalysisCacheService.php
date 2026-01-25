@@ -18,7 +18,7 @@ class AnalysisCacheService
      */
     protected function getCacheKey(string $type, string $identifier): string
     {
-        return self::CACHE_PREFIX . $type . ':' . md5($identifier);
+        return self::CACHE_PREFIX.$type.':'.md5($identifier);
     }
 
     /**
@@ -96,7 +96,7 @@ class AnalysisCacheService
      * @param  string  $type  Type of analysis
      * @param  string  $identifier  Unique identifier
      * @param  string  $filePath  Path to the file being analyzed
-     * @return bool  True if cache is valid, false if file was modified
+     * @return bool True if cache is valid, false if file was modified
      */
     public function isValidForFile(string $type, string $identifier, string $filePath): bool
     {
@@ -104,13 +104,13 @@ class AnalysisCacheService
             return false;
         }
 
-        $cached = $this->get($type, $identifier . ':mtime');
+        $cached = $this->get($type, $identifier.':mtime');
         $currentMtime = File::lastModified($filePath);
 
         if ($cached === null || $cached !== $currentMtime) {
             // File was modified, invalidate cache
             $this->forget($type, $identifier);
-            $this->put($type, $identifier . ':mtime', $currentMtime);
+            $this->put($type, $identifier.':mtime', $currentMtime);
 
             return false;
         }
@@ -125,7 +125,7 @@ class AnalysisCacheService
     {
         if (File::exists($filePath)) {
             $mtime = File::lastModified($filePath);
-            $this->put($type, $identifier . ':mtime', $mtime);
+            $this->put($type, $identifier.':mtime', $mtime);
         }
     }
 }

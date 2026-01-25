@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Integration;
 
 use Abr4xas\McpTools\Tools\ListApiRoutes;
-use Illuminate\Foundation\Testing\TestCase;
+use Abr4xas\McpTools\Tests\TestCase;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Route;
+use Laravel\Mcp\Request;
 
 class ListApiRoutesTest extends TestCase
 {
@@ -16,7 +16,7 @@ class ListApiRoutesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->tool = new ListApiRoutes();
+        $this->tool = new ListApiRoutes;
 
         // Create a test contract file
         $contractPath = storage_path('api-contracts');
@@ -38,10 +38,10 @@ class ListApiRoutesTest extends TestCase
 
     public function test_list_routes_without_filters(): void
     {
-        $result = $this->tool->handle([
-            'page' => 1,
-            'per_page' => 10,
-        ]);
+        $request = new Request(['arguments' => ['page' => 1, 'per_page' => 10]]);
+        $response = $this->tool->handle($request);
+        $text = $this->getResponseText($response);
+        $result = json_decode($text, true);
 
         $this->assertIsArray($result);
         $this->assertArrayHasKey('routes', $result);
@@ -50,11 +50,10 @@ class ListApiRoutesTest extends TestCase
 
     public function test_list_routes_with_method_filter(): void
     {
-        $result = $this->tool->handle([
-            'method' => 'GET',
-            'page' => 1,
-            'per_page' => 10,
-        ]);
+        $request = new Request(['arguments' => ['method' => 'GET', 'page' => 1, 'per_page' => 10]]);
+        $response = $this->tool->handle($request);
+        $text = $this->getResponseText($response);
+        $result = json_decode($text, true);
 
         $this->assertIsArray($result);
         $this->assertArrayHasKey('routes', $result);
@@ -62,11 +61,10 @@ class ListApiRoutesTest extends TestCase
 
     public function test_list_routes_with_search(): void
     {
-        $result = $this->tool->handle([
-            'search' => 'test',
-            'page' => 1,
-            'per_page' => 10,
-        ]);
+        $request = new Request(['arguments' => ['search' => 'test', 'page' => 1, 'per_page' => 10]]);
+        $response = $this->tool->handle($request);
+        $text = $this->getResponseText($response);
+        $result = json_decode($text, true);
 
         $this->assertIsArray($result);
         $this->assertArrayHasKey('routes', $result);

@@ -27,9 +27,10 @@ class ContractVersionCommand extends Command
     protected function listVersions(): int
     {
         $versionsPath = storage_path('api-contracts/versions');
-        
+
         if (! File::exists($versionsPath)) {
             $this->info('No versions found.');
+
             return self::SUCCESS;
         }
 
@@ -49,16 +50,17 @@ class ContractVersionCommand extends Command
         }
 
         // Sort by modified time (newest first)
-        usort($versions, fn($a, $b) => $b['modified'] <=> $a['modified']);
+        usort($versions, fn ($a, $b) => $b['modified'] <=> $a['modified']);
 
         if (empty($versions)) {
             $this->info('No versions found.');
+
             return self::SUCCESS;
         }
 
         $this->table(
             ['Version', 'Date', 'Size'],
-            array_map(fn($v) => [
+            array_map(fn ($v) => [
                 $v['filename'],
                 $v['date'],
                 $this->formatBytes($v['size']),
@@ -74,6 +76,7 @@ class ContractVersionCommand extends Command
 
         if (! $version) {
             $this->error('Version is required. Use --version option.');
+
             return self::FAILURE;
         }
 
@@ -82,13 +85,14 @@ class ContractVersionCommand extends Command
 
         if (! File::exists($versionFile)) {
             $this->error("Version file not found: {$version}");
+
             return self::FAILURE;
         }
 
         // Backup current contract
         $currentContract = storage_path('api-contracts/api.json');
         if (File::exists($currentContract)) {
-            $backupName = 'api-' . date('Y-m-d-His') . '.json';
+            $backupName = 'api-'.date('Y-m-d-His').'.json';
             File::copy($currentContract, "{$versionsPath}/{$backupName}");
             $this->info("Current contract backed up as: {$backupName}");
         }
@@ -118,6 +122,6 @@ class ContractVersionCommand extends Command
         $pow = min($pow, count($units) - 1);
         $bytes /= (1 << (10 * $pow));
 
-        return round($bytes, 2) . ' ' . $units[$pow];
+        return round($bytes, 2).' '.$units[$pow];
     }
 }

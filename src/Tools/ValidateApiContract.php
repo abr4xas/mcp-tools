@@ -86,7 +86,7 @@ class ValidateApiContract extends Tool
                     'type' => 'new_route',
                     'path' => $path,
                     'methods' => array_keys($methods),
-                    'message' => "New route found: {$path} with methods: " . implode(', ', array_keys($methods)),
+                    'message' => "New route found: {$path} with methods: ".implode(', ', array_keys($methods)),
                 ];
                 $summary['new_routes']++;
             } else {
@@ -112,7 +112,7 @@ class ValidateApiContract extends Tool
                     'type' => 'removed_route',
                     'path' => $path,
                     'methods' => array_keys($methods),
-                    'message' => "Route removed from code: {$path} with methods: " . implode(', ', array_keys($methods)),
+                    'message' => "Route removed from code: {$path} with methods: ".implode(', ', array_keys($methods)),
                 ];
                 $summary['removed_routes']++;
             } else {
@@ -154,7 +154,7 @@ class ValidateApiContract extends Tool
                 continue;
             }
 
-            $normalizedUri = '/' . mb_ltrim($uri, '/');
+            $normalizedUri = '/'.mb_ltrim($uri, '/');
             $methods = $route->methods();
 
             foreach ($methods as $method) {

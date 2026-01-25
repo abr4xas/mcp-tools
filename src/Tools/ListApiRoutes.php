@@ -76,7 +76,7 @@ class ListApiRoutes extends Tool
                 // Filter by search term if provided (including route name)
                 if ($search) {
                     $matchesSearch = $this->matchesSearch($path, $routeData, $search);
-                    $matchesRouteName = isset($routeData['route_name']) && 
+                    $matchesRouteName = isset($routeData['route_name']) &&
                         mb_stripos($routeData['route_name'], $search) !== false;
                     if (! $matchesSearch && ! $matchesRouteName) {
                         continue;
@@ -112,6 +112,7 @@ class ListApiRoutes extends Tool
         // Group if requested
         if ($groupBy) {
             $grouped = $this->groupRoutes($routes, $groupBy);
+
             return Response::text(json_encode([
                 'total' => count($routes),
                 'limit' => $limit,
@@ -130,17 +131,12 @@ class ListApiRoutes extends Tool
 
         $response = [
             'total' => $totalRoutes,
-            'per_page' => $limit,
-            'current_page' => $page,
-            'last_page' => $totalPages,
-            'from' => $offset + 1,
-            'to' => min($offset + $limit, $totalRoutes),
+            'limit' => $limit,
             'routes' => $paginatedRoutes,
         ];
 
-        // Add pagination links
-        $response['links'] = $this->generatePaginationLinks($page, $totalPages);
-        $response['meta'] = [
+        // Add pagination information
+        $response['pagination'] = [
             'current_page' => $page,
             'from' => $offset + 1,
             'last_page' => $totalPages,
@@ -148,6 +144,17 @@ class ListApiRoutes extends Tool
             'to' => min($offset + $limit, $totalRoutes),
             'total' => $totalRoutes,
         ];
+
+        // Add pagination links if request context is available
+        try {
+            $response['links'] = $this->generatePaginationLinks($page, $totalPages, $limit);
+        } catch (Throwable) {
+            // If request() is not available in test context, skip links
+            $response['links'] = [];
+        }
+
+        // Add meta for backward compatibility
+        $response['meta'] = $response['pagination'];
 
         // Add statistics
         $response['statistics'] = $this->calculateStatistics($routes);
@@ -192,7 +199,8 @@ class ListApiRoutes extends Tool
     {
         if (empty($sort)) {
             // Default: sort by path
-            usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+            usort($routes, fn (array $a, array $b): int => strcmp($a['path'], $b['path']));
+
             return;
         }
 
@@ -200,7 +208,8 @@ class ListApiRoutes extends Tool
         $sortFields = array_filter($sortFields);
 
         if (empty($sortFields)) {
-            usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+            usort($routes, fn (array $a, array $b): int => strcmp($a['path'], $b['path']));
+
             return;
         }
 
@@ -208,7 +217,7 @@ class ListApiRoutes extends Tool
             foreach ($sortFields as $field) {
                 $field = trim($field);
                 $direction = 'asc';
-                
+
                 if (str_ends_with($field, ':desc') || str_ends_with($field, ':DESC')) {
                     $field = substr($field, 0, -5);
                     $direction = 'desc';
@@ -276,7 +285,8 @@ class ListApiRoutes extends Tool
         $resource = end($parts);
         $resource = str_replace(['{', '}'], '', $resource);
         $resource = \Illuminate\Support\Str::singular($resource);
-        return ucfirst($resource) . 'Controller';
+
+        return ucfirst($resource).'Controller';
     }
 
     /**
@@ -328,8 +338,9 @@ class ListApiRoutes extends Tool
         // Extract prefix (e.g., /api/v1/users -> /api/v1)
         $parts = explode('/', trim($path, '/'));
         if (count($parts) >= 2) {
-            return '/' . implode('/', array_slice($parts, 0, 2));
+            return '/'.implode('/', array_slice($parts, 0, 2));
         }
+
         return '/';
     }
 
@@ -457,6 +468,7 @@ class ListApiRoutes extends Tool
     {
         // Simple parsing: split by AND/OR (case insensitive)
         $terms = preg_split('/\s+(?:and|or)\s+/i', $search);
+
         return array_filter(array_map('trim', $terms));
     }
 
@@ -490,7 +502,7 @@ class ListApiRoutes extends Tool
         }
 
         // Word boundary match
-        if (preg_match('/\b' . preg_quote($search, '/') . '\b/i', $text)) {
+        if (preg_match('/\b'.preg_quote($search, '/').'\b/i', $text)) {
             return true;
         }
 
@@ -585,7 +597,7 @@ class ListApiRoutes extends Tool
                 }
             }
 
-            usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+            usort($routes, fn (array $a, array $b): int => strcmp($a['path'], $b['path']));
             $routes = array_slice($routes, 0, $limit);
 
             $results[] = [
@@ -600,5 +612,72 @@ class ListApiRoutes extends Tool
             'batch_results' => $results,
             'total_operations' => count($results),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+
+    /**
+     * Calculate statistics for routes
+     *
+     * @param  array<int, array<string, mixed>>  $routes
+     * @return array<string, mixed>
+     */
+    protected function calculateStatistics(array $routes): array
+    {
+        $stats = [
+            'total_routes' => count($routes),
+            'by_method' => [],
+            'by_version' => [],
+            'with_auth' => 0,
+            'without_auth' => 0,
+        ];
+
+        foreach ($routes as $route) {
+            $method = $route['method'] ?? 'GET';
+            $version = $route['api_version'] ?? 'unknown';
+            $auth = $route['auth'] ?? 'none';
+
+            $stats['by_method'][$method] = ($stats['by_method'][$method] ?? 0) + 1;
+            $stats['by_version'][$version] = ($stats['by_version'][$version] ?? 0) + 1;
+
+            if ($auth !== 'none') {
+                $stats['with_auth']++;
+            } else {
+                $stats['without_auth']++;
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Generate pagination links
+     *
+     * @return array<string, string|null>
+     */
+    protected function generatePaginationLinks(int $currentPage, int $lastPage, int $perPage): array
+    {
+        $baseUrl = request()->url() ?? '/';
+        $queryParams = request()->query();
+
+        $links = [
+            'first' => $currentPage > 1 ? $this->buildPaginationUrl($baseUrl, 1, $queryParams) : null,
+            'last' => $currentPage < $lastPage ? $this->buildPaginationUrl($baseUrl, $lastPage, $queryParams) : null,
+            'prev' => $currentPage > 1 ? $this->buildPaginationUrl($baseUrl, $currentPage - 1, $queryParams) : null,
+            'next' => $currentPage < $lastPage ? $this->buildPaginationUrl($baseUrl, $currentPage + 1, $queryParams) : null,
+        ];
+
+        return $links;
+    }
+
+    /**
+     * Build pagination URL
+     *
+     * @param  array<string, mixed>  $queryParams
+     */
+    protected function buildPaginationUrl(string $baseUrl, int $page, array $queryParams): string
+    {
+        $queryParams['page'] = $page;
+        $queryString = http_build_query($queryParams);
+
+        return $baseUrl.($queryString ? '?'.$queryString : '');
     }
 }

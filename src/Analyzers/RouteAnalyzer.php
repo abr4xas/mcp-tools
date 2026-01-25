@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Analyzers;
 
-use Abr4xas\McpTools\Analyzers\MiddlewareAnalyzer;
 use Abr4xas\McpTools\Exceptions\RouteAnalysisException;
 use Abr4xas\McpTools\Services\AnalysisCacheService;
 use Illuminate\Routing\Route;
@@ -28,7 +27,7 @@ class RouteAnalyzer
 
     public function extractPathParams(string $uri, $action = null): array
     {
-        $cacheKey = 'path_params:' . $uri . ($action ? ':' . md5((string) $action) : '');
+        $cacheKey = 'path_params:'.$uri.($action ? ':'.md5((string) $action) : '');
         if ($this->cacheService->has('route', $cacheKey)) {
             return $this->cacheService->get('route', $cacheKey);
         }
@@ -74,14 +73,14 @@ class RouteAnalyzer
                     $paramType = $param->getType();
                     if ($paramType instanceof \ReflectionNamedType) {
                         $typeName = $paramType->getName();
-                        
+
                         // Check if it's a model (route model binding)
                         if (class_exists($typeName)) {
                             // Check if it's an Eloquent model
                             if (is_subclass_of($typeName, \Illuminate\Database\Eloquent\Model::class)) {
                                 // Try to infer type from model's primary key
                                 try {
-                                    $model = new $typeName();
+                                    $model = new $typeName;
                                     $keyType = $model->getKeyType();
                                     $type = match ($keyType) {
                                         'int' => 'integer',
@@ -146,7 +145,7 @@ class RouteAnalyzer
     public function determineAuth(Route $route): array
     {
         $routeName = $route->getName() ?? $route->uri();
-        $cacheKey = 'auth:' . $routeName;
+        $cacheKey = 'auth:'.$routeName;
         if ($this->cacheService->has('route', $cacheKey)) {
             return $this->cacheService->get('route', $cacheKey);
         }

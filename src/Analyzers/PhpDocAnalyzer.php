@@ -63,6 +63,7 @@ class PhpDocAnalyzer
                         'description' => $paramDescription,
                     ];
                 }
+
                 continue;
             }
 
@@ -76,6 +77,7 @@ class PhpDocAnalyzer
                     'type' => $returnType,
                     'description' => $returnDescription,
                 ];
+
                 continue;
             }
 
@@ -83,6 +85,7 @@ class PhpDocAnalyzer
             if (preg_match('/@description\s+(.+)/', $line, $matches)) {
                 $inDescription = false;
                 $description = [trim($matches[1])];
+
                 continue;
             }
 

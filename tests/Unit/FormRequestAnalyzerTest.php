@@ -6,7 +6,7 @@ namespace Tests\Unit;
 
 use Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
 use Abr4xas\McpTools\Services\AnalysisCacheService;
-use Illuminate\Foundation\Testing\TestCase;
+use Abr4xas\McpTools\Tests\TestCase;
 use Illuminate\Foundation\Http\FormRequest;
 
 class FormRequestAnalyzerTest extends TestCase
@@ -16,7 +16,7 @@ class FormRequestAnalyzerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $cacheService = new AnalysisCacheService();
+        $cacheService = new AnalysisCacheService;
         $this->analyzer = new FormRequestAnalyzer($cacheService);
     }
 
@@ -53,8 +53,20 @@ class FormRequestAnalyzerTest extends TestCase
 
     public function test_extract_query_params_from_method(): void
     {
-        $reflection = new \ReflectionClass(FormRequest::class);
-        $method = $reflection->getMethod('authorize');
+        // Create a simple test class with a method
+        $testClass = new class {
+            /**
+             * @param string $name
+             * @param int $age
+             */
+            public function testMethod($name, $age)
+            {
+                return $name.$age;
+            }
+        };
+
+        $reflection = new \ReflectionClass($testClass);
+        $method = $reflection->getMethod('testMethod');
 
         $params = $this->analyzer->extractQueryParamsFromMethod($method);
         $this->assertIsArray($params);

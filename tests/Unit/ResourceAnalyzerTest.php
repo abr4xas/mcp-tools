@@ -7,7 +7,7 @@ namespace Tests\Unit;
 use Abr4xas\McpTools\Analyzers\ExampleGenerator;
 use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
 use Abr4xas\McpTools\Services\AnalysisCacheService;
-use Illuminate\Foundation\Testing\TestCase;
+use Abr4xas\McpTools\Tests\TestCase;
 
 class ResourceAnalyzerTest extends TestCase
 {
@@ -16,8 +16,8 @@ class ResourceAnalyzerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $cacheService = new AnalysisCacheService();
-        $exampleGenerator = new ExampleGenerator();
+        $cacheService = new AnalysisCacheService;
+        $exampleGenerator = new ExampleGenerator;
         $this->analyzer = new ResourceAnalyzer($cacheService, $exampleGenerator);
     }
 
@@ -47,7 +47,9 @@ class ResourceAnalyzerTest extends TestCase
             'comments' => [],
         ];
 
-        $relationships = $this->analyzer->detectRelationships('TestResource', $data);
-        $this->assertIsArray($relationships);
+        // detectRelationships is a protected method, so we test through dataToSchema
+        $schema = $this->analyzer->dataToSchema($data);
+        $this->assertIsArray($schema);
+        $this->assertArrayHasKey('id', $schema);
     }
 }

@@ -50,22 +50,22 @@ class FormRequestAnalysisException extends AnalysisException
     {
         $context = $this->getContext();
         $formRequestClass = $context['form_request_class'] ?? 'unknown';
-        
+
         return match ($this->errorCode) {
-            'FORM_REQUEST_INSTANTIATION_FAILED' => 'Check if the FormRequest has required dependencies in its constructor. ' .
-                'Consider making dependencies optional or using dependency injection. ' .
-                "Review the FormRequest class: {$formRequestClass}. " .
+            'FORM_REQUEST_INSTANTIATION_FAILED' => 'Check if the FormRequest has required dependencies in its constructor. '.
+                'Consider making dependencies optional or using dependency injection. '.
+                "Review the FormRequest class: {$formRequestClass}. ".
                 'Common issues: missing database connection, required model relationships, or authorization logic.',
-            'FORM_REQUEST_RULES_NOT_FOUND' => 'Ensure your FormRequest class extends Illuminate\Foundation\Http\FormRequest and implements the rules() method. ' .
-                "Check the class: {$formRequestClass}. " .
+            'FORM_REQUEST_RULES_NOT_FOUND' => 'Ensure your FormRequest class extends Illuminate\Foundation\Http\FormRequest and implements the rules() method. '.
+                "Check the class: {$formRequestClass}. ".
                 'The rules() method must return an array of validation rules.',
-            'FORM_REQUEST_INVALID_RULES' => 'Verify that the rules() method returns a valid array of validation rules. ' .
-                "Check the FormRequest: {$formRequestClass}. " .
+            'FORM_REQUEST_INVALID_RULES' => 'Verify that the rules() method returns a valid array of validation rules. '.
+                "Check the FormRequest: {$formRequestClass}. ".
                 'See Laravel validation documentation: https://laravel.com/docs/validation',
-            'FORM_REQUEST_CLASS_NOT_FOUND' => 'Check that the FormRequest class exists and the namespace is correct. ' .
-                "Expected class: {$formRequestClass}. " .
+            'FORM_REQUEST_CLASS_NOT_FOUND' => 'Check that the FormRequest class exists and the namespace is correct. '.
+                "Expected class: {$formRequestClass}. ".
                 'Run: composer dump-autoload. Verify the file exists in app/Http/Requests/',
-            default => 'Review the FormRequest class and ensure it follows Laravel conventions. ' .
+            default => 'Review the FormRequest class and ensure it follows Laravel conventions. '.
                 'For debugging, check: php artisan mcp-tools:health-check',
         };
     }

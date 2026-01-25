@@ -45,26 +45,26 @@ class JsonSchemaValidator
             if (! in_array($type, $validTypes, true)) {
                 $errors[] = [
                     'path' => $path,
-                    'message' => "Invalid type '{$type}'. Must be one of: " . implode(', ', $validTypes),
+                    'message' => "Invalid type '{$type}'. Must be one of: ".implode(', ', $validTypes),
                 ];
             }
 
             // Validate array items
             if ($type === 'array' && isset($schema['items'])) {
-                $this->validateSchemaStructure($schema['items'], $path . '.items', $errors);
+                $this->validateSchemaStructure($schema['items'], $path.'.items', $errors);
             }
 
             // Validate object properties
             if ($type === 'object' && isset($schema['properties'])) {
                 foreach ($schema['properties'] as $propName => $propSchema) {
-                    $this->validateSchemaStructure($propSchema, $path . '.' . $propName, $errors);
+                    $this->validateSchemaStructure($propSchema, $path.'.'.$propName, $errors);
                 }
             }
         } else {
             // It's a schema object with properties
             if (isset($schema['properties'])) {
                 foreach ($schema['properties'] as $propName => $propSchema) {
-                    $this->validateSchemaStructure($propSchema, $path . '.' . $propName, $errors);
+                    $this->validateSchemaStructure($propSchema, $path.'.'.$propName, $errors);
                 }
             }
         }

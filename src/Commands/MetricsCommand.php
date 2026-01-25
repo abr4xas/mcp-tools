@@ -19,12 +19,14 @@ class MetricsCommand extends Command
 
         if (! File::exists($contractPath)) {
             $this->error('Contract file not found. Run "php artisan api:contract:generate" first.');
+
             return self::FAILURE;
         }
 
         $contract = json_decode(File::get($contractPath), true);
         if (! is_array($contract)) {
             $this->error('Invalid contract file.');
+
             return self::FAILURE;
         }
 
@@ -47,7 +49,7 @@ class MetricsCommand extends Command
                 ['Routes with Request Schema', $metrics['routes_with_request_schema']],
                 ['Routes with Response Schema', $metrics['routes_with_response_schema']],
                 ['Routes with Complete Schemas', $metrics['routes_with_complete_schemas']],
-                ['Schema Coverage', $metrics['schema_coverage'] . '%'],
+                ['Schema Coverage', $metrics['schema_coverage'].'%'],
                 ['Deprecated Routes', $metrics['deprecated_routes']],
             ]
         );
@@ -93,7 +95,7 @@ class MetricsCommand extends Command
 
                 // Count schemas
                 $hasRequestSchema = ! empty($routeData['request_schema'] ?? []);
-                $hasResponseSchema = ! empty($routeData['response_schema'] ?? []) 
+                $hasResponseSchema = ! empty($routeData['response_schema'] ?? [])
                     && ! isset($routeData['response_schema']['undocumented']);
 
                 if ($hasRequestSchema) {
@@ -113,7 +115,7 @@ class MetricsCommand extends Command
             }
         }
 
-        $schemaCoverage = $totalRoutes > 0 
+        $schemaCoverage = $totalRoutes > 0
             ? round((($routesWithRequestSchema + $routesWithResponseSchema) / ($totalRoutes * 2)) * 100, 1)
             : 0;
 
@@ -142,6 +144,7 @@ class MetricsCommand extends Command
         foreach ($counts as $method => $count) {
             $parts[] = "{$method}: {$count}";
         }
+
         return implode(', ', $parts);
     }
 
@@ -156,6 +159,7 @@ class MetricsCommand extends Command
         foreach ($counts as $version => $count) {
             $parts[] = "{$version}: {$count}";
         }
+
         return implode(', ', $parts);
     }
 }

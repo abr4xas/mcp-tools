@@ -9,7 +9,6 @@ use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
 use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Route;
 
 class HealthCheckCommand extends Command
 {
@@ -64,10 +63,12 @@ class HealthCheckCommand extends Command
 
         if ($allPassed) {
             $this->info('All health checks passed!');
+
             return self::SUCCESS;
         }
 
         $this->error('Some health checks failed. Please review the issues above.');
+
         return self::FAILURE;
     }
 
@@ -188,10 +189,10 @@ class HealthCheckCommand extends Command
         try {
             // Test RouteAnalyzer
             $this->routeAnalyzer->extractApiVersion('/api/v1/test');
-            
+
             // Test FormRequestAnalyzer
             // Just check if it can be instantiated
-            
+
             // Test ResourceAnalyzer
             $this->resourceAnalyzer->preloadResources();
 

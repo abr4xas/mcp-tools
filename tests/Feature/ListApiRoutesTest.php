@@ -4,7 +4,7 @@ use Abr4xas\McpTools\Tools\ListApiRoutes;
 use Laravel\Mcp\Request;
 
 beforeEach(function () {
-    $this->tool = new ListApiRoutes();
+    $this->tool = new ListApiRoutes;
     $this->createSampleContract();
 });
 

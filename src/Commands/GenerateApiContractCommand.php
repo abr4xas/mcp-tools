@@ -4,16 +4,13 @@ namespace Abr4xas\McpTools\Commands;
 
 use Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
 use Abr4xas\McpTools\Analyzers\PhpDocAnalyzer;
-use Abr4xas\McpTools\Analyzers\ResponseCodeAnalyzer;
 use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
 use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
-use Abr4xas\McpTools\Services\AstCacheService;
-use Abr4xas\McpTools\Services\JsonSchemaValidator;
-use Abr4xas\McpTools\Services\SchemaTransformerRegistry;
 use Abr4xas\McpTools\Exceptions\AnalysisException;
 use Abr4xas\McpTools\Exceptions\FormRequestAnalysisException;
 use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
 use Abr4xas\McpTools\Exceptions\RouteAnalysisException;
+use Abr4xas\McpTools\Services\AstCacheService;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
@@ -67,7 +64,7 @@ class GenerateApiContractCommand extends Command
         $enableLogging = $this->option('log');
         $dryRun = $this->option('dry-run');
         $validateSchemas = $this->option('validate-schemas');
-        
+
         if ($dryRun) {
             $this->info('Running in dry-run mode (no file will be written)...');
         } elseif ($incremental) {
@@ -133,7 +130,7 @@ class GenerateApiContractCommand extends Command
                 continue;
             }
 
-            $normalizedUri = '/' . mb_ltrim($uri, '/');
+            $normalizedUri = '/'.mb_ltrim($uri, '/');
             $methods = $route->methods();
             $action = $route->getAction('uses');
 
@@ -157,6 +154,7 @@ class GenerateApiContractCommand extends Command
                     if ($enableLogging) {
                         \Log::debug("MCP Tools: Skipped route {$method} {$normalizedUri} (unchanged)");
                     }
+
                     continue;
                 }
 
@@ -173,14 +171,14 @@ class GenerateApiContractCommand extends Command
 
                     $isQuery = in_array($method, $queryMethods, true);
                     $requestSchema = $this->extractRequestSchema($action, $isQuery);
-                    
+
                     // Apply schema transformers
                     if (! empty($requestSchema['properties'])) {
                         $requestSchema['properties'] = $this->transformerRegistry->apply($requestSchema['properties']);
                     }
 
                     $responseSchema = $this->extractResponseSchema($action, $normalizedUri);
-                    
+
                     // Apply schema transformers to response
                     if (! empty($responseSchema) && ! isset($responseSchema['undocumented'])) {
                         $responseSchema = $this->transformerRegistry->apply($responseSchema);
@@ -244,7 +242,7 @@ class GenerateApiContractCommand extends Command
                     ];
                     $progressBar->setMessage("Error: {$errorInfo['error_code']} - {$normalizedUri}");
                     $progressBar->advance();
-                    
+
                     if ($enableLogging) {
                         \Log::warning("MCP Tools: Error processing route {$method} {$normalizedUri}", [
                             'error_code' => $errorInfo['error_code'],
@@ -272,7 +270,7 @@ class GenerateApiContractCommand extends Command
                     ];
                     $progressBar->setMessage("Unexpected Error: {$normalizedUri}");
                     $progressBar->advance();
-                    
+
                     if ($enableLogging) {
                         \Log::error("MCP Tools: Unexpected error processing route {$method} {$normalizedUri}", [
                             'error' => $e->getMessage(),
@@ -318,16 +316,16 @@ class GenerateApiContractCommand extends Command
         $this->newLine();
         $this->info('Summary:');
         $this->line("  Total routes: {$totalRoutes}");
-        $this->line('  Errors: ' . count($errors));
+        $this->line('  Errors: '.count($errors));
         if ($validateSchemas) {
-            $this->line('  Schema validation errors: ' . count($schemaErrors));
+            $this->line('  Schema validation errors: '.count($schemaErrors));
         }
 
         if ($dryRun) {
             $this->newLine();
             $this->warn('DRY RUN MODE: No file was written.');
             $this->info('The contract would be generated with the above summary.');
-            
+
             if (! empty($errors)) {
                 $this->newLine();
                 $this->warn('Errors that would be included:');
@@ -356,14 +354,14 @@ class GenerateApiContractCommand extends Command
         }
 
         $fullPath = "{$directory}/api.json";
-        
+
         // Save version before overwriting
         if (File::exists($fullPath) && ! $incremental) {
             $versionsDir = "{$directory}/versions";
             if (! File::exists($versionsDir)) {
                 File::makeDirectory($versionsDir, 0755, true);
             }
-            $versionName = 'api-' . date('Y-m-d-His') . '.json';
+            $versionName = 'api-'.date('Y-m-d-His').'.json';
             File::copy($fullPath, "{$versionsDir}/{$versionName}");
         }
 
@@ -379,7 +377,7 @@ class GenerateApiContractCommand extends Command
 
         if ($json === false) {
             $this->error('Failed to encode contract to JSON');
-            $this->error('Error: ' . json_last_error_msg());
+            $this->error('Error: '.json_last_error_msg());
 
             return self::FAILURE;
         }
@@ -412,7 +410,6 @@ class GenerateApiContractCommand extends Command
      * Extract request schema from route action
      *
      * @param  mixed  $action
-     * @param  bool  $isQuery
      * @return array{location: string, properties: array}|array<string, mixed>
      */
     private function extractRequestSchema($action, bool $isQuery): array
@@ -486,7 +483,6 @@ class GenerateApiContractCommand extends Command
      * Extract response schema from route action
      *
      * @param  mixed  $action
-     * @param  string  $uri
      * @return array<string, mixed>
      */
     private function extractResponseSchema($action, string $uri): array
@@ -585,8 +581,8 @@ class GenerateApiContractCommand extends Command
             // More intelligent matching
             $nameLower = mb_strtolower($name);
             $resourceLower = mb_strtolower($resourceName);
-            
-            if ((Str::contains($nameLower, $resourceLower) || Str::contains($resourceLower, $nameLower)) 
+
+            if ((Str::contains($nameLower, $resourceLower) || Str::contains($resourceLower, $nameLower))
                 && (Str::endsWith($name, 'Resource') || Str::endsWith($name, 'Collection'))) {
                 $candidates[] = $fullClass;
             }
@@ -667,12 +663,11 @@ class GenerateApiContractCommand extends Command
         $relative = mb_trim(str_replace($base, '', $path), DIRECTORY_SEPARATOR);
         $namespace = 'App\\Http\\Resources';
         if ($relative !== '' && $relative !== '0') {
-            $namespace .= '\\' . str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
+            $namespace .= '\\'.str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
         }
 
-        return $namespace . '\\' . $fileItem->getFilenameWithoutExtension();
+        return $namespace.'\\'.$fileItem->getFilenameWithoutExtension();
     }
-
 
     /**
      * Extract Resource class name from method body by analyzing source code
@@ -782,6 +777,7 @@ class GenerateApiContractCommand extends Command
                 if ($fullClass && class_exists($fullClass)) {
                     // Cache result
                     $this->cacheAstResult($fileName, $reflection->getName(), $fullClass);
+
                     return $fullClass;
                 }
             }
@@ -828,13 +824,13 @@ class GenerateApiContractCommand extends Command
             // Look for use statements - match the full line
             // Pattern: use App\Http\Resources\CardResource;
             // Pattern: use App\Http\Resources\Cards\CardResource;
-            if (preg_match('/use\s+([^;]+' . preg_quote($shortName, '/') . ')\s*;/', $content, $matches)) {
+            if (preg_match('/use\s+([^;]+'.preg_quote($shortName, '/').')\s*;/', $content, $matches)) {
                 return mb_trim($matches[1]);
             }
 
             // Look for use statements with as alias
             // Pattern: use App\Http\Resources\Cards\CardResource as CardResource;
-            if (preg_match('/use\s+([^;]+)\s+as\s+' . preg_quote($shortName, '/') . '\s*;/', $content, $matches)) {
+            if (preg_match('/use\s+([^;]+)\s+as\s+'.preg_quote($shortName, '/').'\s*;/', $content, $matches)) {
                 return mb_trim($matches[1]);
             }
 
@@ -855,8 +851,6 @@ class GenerateApiContractCommand extends Command
      * Extract description from PHPDoc of controller method
      *
      * @param  mixed  $action
-     * @param  string  $method
-     * @return string|null
      */
     private function extractDescription($action, string $method): ?string
     {
@@ -909,7 +903,7 @@ class GenerateApiContractCommand extends Command
             "App\\Http\\Resources\\{$resourceName}Resource",
             "App\\Http\\Resources\\{$resourceName}OverviewResource",
             "App\\Http\\Resources\\{$resourceName}Collection",
-            'App\\Http\\Resources\\' . ucfirst($resourceName) . 'Resource',
+            'App\\Http\\Resources\\'.ucfirst($resourceName).'Resource',
         ];
 
         // Extract namespace hints from URI path
@@ -918,7 +912,7 @@ class GenerateApiContractCommand extends Command
             // e.g., /api/v1/posts/cards -> try Posts\Cards namespace
             $namespaceParts = array_slice($urlParts, 2, -1); // Skip api, version, and last part
             if (! empty($namespaceParts)) {
-                $namespace = 'App\\Http\\Resources\\' . implode('\\', array_map('ucfirst', $namespaceParts));
+                $namespace = 'App\\Http\\Resources\\'.implode('\\', array_map('ucfirst', $namespaceParts));
                 $candidates[] = "{$namespace}\\{$resourceName}Resource";
                 $candidates[] = "{$namespace}\\{$resourceName}Collection";
             }
@@ -934,4 +928,134 @@ class GenerateApiContractCommand extends Command
         return array_unique($candidates);
     }
 
+    /**
+     * Get current git commit hash
+     */
+    protected function getGitCommit(): ?string
+    {
+        try {
+            $gitDir = base_path('.git');
+            if (! is_dir($gitDir)) {
+                return null;
+            }
+
+            $headFile = $gitDir.'/HEAD';
+            if (! file_exists($headFile)) {
+                return null;
+            }
+
+            $head = trim((string) file_get_contents($headFile));
+            if (str_starts_with($head, 'ref: ')) {
+                $ref = substr($head, 5);
+                $refFile = $gitDir.'/'.$ref;
+                if (file_exists($refFile)) {
+                    return trim((string) file_get_contents($refFile));
+                }
+            } else {
+                return $head;
+            }
+        } catch (Throwable) {
+            // Ignore errors
+        }
+
+        return null;
+    }
+
+    /**
+     * Get list of modified files for incremental updates
+     *
+     * @return array<string, int>
+     */
+    protected function getModifiedFiles(bool $incremental): array
+    {
+        if (! $incremental) {
+            return [];
+        }
+
+        $modifiedFiles = [];
+        $contractFile = storage_path('api-contracts/api.json');
+
+        if (! File::exists($contractFile)) {
+            return [];
+        }
+
+        // Get last modification time of contract
+        $contractMtime = File::lastModified($contractFile);
+
+        // Scan relevant directories for modified files
+        $directories = [
+            app_path('Http/Controllers'),
+            app_path('Http/Resources'),
+            app_path('Http/Requests'),
+            base_path('routes'),
+        ];
+
+        foreach ($directories as $dir) {
+            if (! File::isDirectory($dir)) {
+                continue;
+            }
+
+            $files = File::allFiles($dir);
+            foreach ($files as $file) {
+                if ($file->getMTime() > $contractMtime) {
+                    $modifiedFiles[$file->getPathname()] = $file->getMTime();
+                }
+            }
+        }
+
+        return $modifiedFiles;
+    }
+
+    /**
+     * Determine if a route should be updated in incremental mode
+     *
+     * @param  mixed  $action
+     * @param  array<string, mixed>  $existingContract
+     * @param  array<string, int>  $modifiedFiles
+     */
+    protected function shouldUpdateRoute(string $normalizedUri, string $method, $action, array $existingContract, array $modifiedFiles): bool
+    {
+        // If route doesn't exist in contract, update it
+        if (! isset($existingContract[$normalizedUri][$method])) {
+            return true;
+        }
+
+        // If no modified files, don't update
+        if (empty($modifiedFiles)) {
+            return false;
+        }
+
+        // Check if action file was modified
+        if (is_string($action) && Str::contains($action, '@')) {
+            [$controller] = explode('@', $action);
+            $controllerFile = $this->getControllerFile($controller);
+            if ($controllerFile && isset($modifiedFiles[$controllerFile])) {
+                return true;
+            }
+        }
+
+        // Check if related files were modified (FormRequest, Resource, etc.)
+        $routeData = $existingContract[$normalizedUri][$method] ?? [];
+        
+        // This is a simplified check - in a real scenario, you'd track all related files
+        return false;
+    }
+
+    /**
+     * Get controller file path from class name
+     */
+    protected function getControllerFile(string $controllerClass): ?string
+    {
+        try {
+            if (! class_exists($controllerClass)) {
+                return null;
+            }
+
+            $reflection = new ReflectionClass($controllerClass);
+
+            return $reflection->getFileName() ?: null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
 }

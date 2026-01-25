@@ -121,7 +121,7 @@ class ExportOpenApiCommand extends Command
     protected function convertRouteToOpenApi(array $routeData, string $method): array
     {
         $operation = [
-            'summary' => $routeData['description'] ?? ucfirst(mb_strtolower($method)) . ' endpoint',
+            'summary' => $routeData['description'] ?? ucfirst(mb_strtolower($method)).' endpoint',
             'operationId' => $this->generateOperationId($routeData, $method),
         ];
 
@@ -355,8 +355,8 @@ class ExportOpenApiCommand extends Command
                 'type' => 'oauth2',
                 'flows' => [
                     'authorizationCode' => [
-                        'authorizationUrl' => config('app.url', 'http://localhost') . '/oauth/authorize',
-                        'tokenUrl' => config('app.url', 'http://localhost') . '/oauth/token',
+                        'authorizationUrl' => config('app.url', 'http://localhost').'/oauth/authorize',
+                        'tokenUrl' => config('app.url', 'http://localhost').'/oauth/token',
                         'scopes' => [],
                     ],
                 ],
@@ -395,7 +395,7 @@ class ExportOpenApiCommand extends Command
         $lastPart = end($pathParts);
         $lastPart = str_replace(['{', '}'], '', $lastPart);
 
-        return mb_strtolower($method) . ucfirst($lastPart);
+        return mb_strtolower($method).ucfirst($lastPart);
     }
 
     /**

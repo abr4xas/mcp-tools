@@ -65,6 +65,6 @@ class AstCacheService
      */
     protected function getCacheKey(string $filePath, int $mtime): string
     {
-        return self::CACHE_PREFIX . md5($filePath . ':' . $mtime);
+        return self::CACHE_PREFIX.md5($filePath.':'.$mtime);
     }
 }

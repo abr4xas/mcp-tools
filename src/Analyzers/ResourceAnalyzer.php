@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Analyzers;
 
-use Abr4xas\McpTools\Analyzers\ExampleGenerator;
 use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
 use Abr4xas\McpTools\Services\AnalysisCacheService;
 use Illuminate\Http\Resources\Json\ResourceCollection;
@@ -35,12 +34,13 @@ class ResourceAnalyzer
     public function preloadResources(): void
     {
         $cacheKey = 'resources_metadata';
-        
+
         // Check cache first
         if ($this->cacheService->has('resource', $cacheKey)) {
             $cached = $this->cacheService->get('resource', $cacheKey);
             if (is_array($cached)) {
                 $this->availableResources = $cached;
+
                 return;
             }
         }
@@ -49,7 +49,7 @@ class ResourceAnalyzer
         if (File::exists($basePath)) {
             $files = File::allFiles($basePath);
             $metadata = [];
-            
+
             foreach ($files as $file) {
                 $className = $this->getClassNameFromFile($file);
                 $metadata[$file->getFilenameWithoutExtension()] = [
@@ -60,7 +60,7 @@ class ResourceAnalyzer
                 ];
                 $this->availableResources[$file->getFilenameWithoutExtension()] = $className;
             }
-            
+
             // Cache metadata
             $this->cacheService->put('resource', $cacheKey, $this->availableResources);
         }
@@ -73,6 +73,7 @@ class ResourceAnalyzer
     {
         $parts = explode('\\', $className);
         array_pop($parts); // Remove class name
+
         return implode('\\', $parts);
     }
 
@@ -91,15 +92,15 @@ class ResourceAnalyzer
             $filePath = $reflection->getFileName();
             if ($filePath) {
                 $fileHash = md5_file($filePath);
-                $hashCacheKey = $cacheKey . ':hash:' . $fileHash;
-                
+                $hashCacheKey = $cacheKey.':hash:'.$fileHash;
+
                 if ($this->cacheService->has('resource', $hashCacheKey)) {
                     $cached = $this->cacheService->get('resource', $hashCacheKey);
                     if ($cached !== null) {
                         return $cached;
                     }
                 }
-                
+
                 // Check with file modification time
                 if ($this->cacheService->isValidForFile('resource', $cacheKey, $filePath)) {
                     $cached = $this->cacheService->get('resource', $cacheKey);
@@ -130,10 +131,10 @@ class ResourceAnalyzer
         // PostCollection -> Post
         // PostResource -> Post
         $modelName = str_replace(['Resource', 'Overview', 'Collection'], '', $basics);
-        
+
         // Try multiple model detection strategies
         $modelClass = $this->detectModelClass($modelName, $resourceClass);
-        
+
         if (! $modelClass || ! class_exists($modelClass)) {
             throw ResourceAnalysisException::modelNotFound($modelClass ?? "App\\Models\\{$modelName}", $resourceClass);
         }
@@ -282,10 +283,10 @@ class ResourceAnalyzer
         $relative = mb_trim(str_replace($base, '', $path), DIRECTORY_SEPARATOR);
         $namespace = 'App\\Http\\Resources';
         if ($relative !== '' && $relative !== '0') {
-            $namespace .= '\\' . str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
+            $namespace .= '\\'.str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
         }
 
-        return $namespace . '\\' . $fileItem->getFilenameWithoutExtension();
+        return $namespace.'\\'.$fileItem->getFilenameWithoutExtension();
     }
 
     /**
@@ -298,7 +299,7 @@ class ResourceAnalyzer
         try {
             $reflection = new ReflectionClass($resourceClass);
             $parent = $reflection->getParentClass();
-            
+
             if ($parent && str_contains($parent->getName(), 'Resource')) {
                 // Resource extends another resource
                 $parentClass = $parent->getName();
@@ -393,7 +394,7 @@ class ResourceAnalyzer
      */
     protected function inferResourceFromRelation(string $relation): ?string
     {
-        $resourceName = ucfirst(Str::singular($relation)) . 'Resource';
+        $resourceName = ucfirst(Str::singular($relation)).'Resource';
         $candidates = [
             "App\\Http\\Resources\\{$resourceName}",
         ];
@@ -412,7 +413,7 @@ class ResourceAnalyzer
      */
     protected function inferResourceFromKey(string $key): ?string
     {
-        $resourceName = ucfirst(Str::singular($key)) . 'Resource';
+        $resourceName = ucfirst(Str::singular($key)).'Resource';
         $candidates = [
             "App\\Http\\Resources\\{$resourceName}",
         ];
@@ -440,7 +441,7 @@ class ResourceAnalyzer
         try {
             $reflection = new ReflectionClass($contextClass);
             $content = file_get_contents($reflection->getFileName());
-            if ($content !== false && preg_match('/use\s+([^;]+' . preg_quote($shortName, '/') . ')\s*;/', $content, $matches)) {
+            if ($content !== false && preg_match('/use\s+([^;]+'.preg_quote($shortName, '/').')\s*;/', $content, $matches)) {
                 $candidates[] = trim($matches[1]);
             }
         } catch (Throwable) {
@@ -467,9 +468,9 @@ class ResourceAnalyzer
             if ($filePath) {
                 // Store with hash-based key for faster lookup
                 $fileHash = md5_file($filePath);
-                $hashCacheKey = $cacheKey . ':hash:' . $fileHash;
+                $hashCacheKey = $cacheKey.':hash:'.$fileHash;
                 $this->cacheService->put('resource', $hashCacheKey, $result);
-                
+
                 // Also store with standard key
                 $this->cacheService->put('resource', $cacheKey, $result);
                 $this->cacheService->storeFileMtime('resource', $cacheKey, $filePath);
