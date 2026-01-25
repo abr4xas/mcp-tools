@@ -616,7 +616,7 @@
       "Probar con diferentes tipos de respuestas",
       "Verificar que los códigos se detectan correctamente"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
