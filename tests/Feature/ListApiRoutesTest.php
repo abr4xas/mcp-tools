@@ -10,8 +10,10 @@ beforeEach(function () {
 
 afterEach(function () {
     // Clear contract cache to prevent test pollution
-    $contractLoader = new \Abr4xas\McpTools\Services\ContractLoader;
-    $contractLoader->clearCache();
+    $reflection = new \ReflectionClass(ListApiRoutes::class);
+    $property = $reflection->getProperty('contractCache');
+    $property->setAccessible(true);
+    $property->setValue(null, []);
 });
 
 it('lists all routes without filters', function () {

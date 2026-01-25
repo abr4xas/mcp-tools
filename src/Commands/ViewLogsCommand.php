@@ -44,7 +44,7 @@ class ViewLogsCommand extends Command
         $allLines = explode("\n", $logContent);
         $mcpLines = array_filter($allLines, fn ($line) => str_contains($line, 'MCP Tools'));
 
-        if ($level) {
+        if ($level && is_string($level)) {
             $mcpLines = array_filter($mcpLines, fn ($line) => str_contains($line, "[{$level}]"));
         }
 

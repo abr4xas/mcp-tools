@@ -57,6 +57,8 @@ it('extracts path parameters from routes', function () {
         Route::get('/users/{user}', fn () => response()->json([]));
         Route::get('/posts/{post}/comments/{comment}', fn () => response()->json([]));
     });
+    Route::getRoutes()->refreshNameLookups();
+    Route::getRoutes()->refreshActionLookups();
 
     $this->artisan(GenerateApiContractCommand::class);
 
@@ -84,6 +86,8 @@ it('extracts optional path parameters', function () {
 });
 
 it('determines authentication type from middleware', function () {
+    Route::getRoutes()->refreshNameLookups();
+    Route::getRoutes()->refreshActionLookups();
     Route::group(['prefix' => 'api/v1', 'middleware' => 'auth:sanctum'], function () {
         Route::get('/protected', fn () => response()->json([]));
     });
@@ -102,6 +106,8 @@ it('determines authentication type from middleware', function () {
 });
 
 it('extracts rate limit information from throttle middleware', function () {
+    Route::getRoutes()->refreshNameLookups();
+    Route::getRoutes()->refreshActionLookups();
     Route::group(['prefix' => 'api/v1', 'middleware' => 'throttle:api'], function () {
         Route::get('/limited', fn () => response()->json([]));
     });
@@ -226,6 +232,8 @@ it('skips HEAD method routes', function () {
 });
 
 it('only processes routes starting with api/', function () {
+    Route::getRoutes()->refreshNameLookups();
+    Route::getRoutes()->refreshActionLookups();
     Route::get('/web-route', fn () => response()->json([]));
     Route::group(['prefix' => 'api/v1'], function () {
         Route::get('/api-route', fn () => response()->json([]));

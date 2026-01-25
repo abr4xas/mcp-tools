@@ -17,7 +17,7 @@ class ClearCacheCommand extends Command
     {
         $type = $this->option('type');
 
-        if ($type) {
+        if ($type && is_string($type)) {
             $cacheService->clearType($type);
             $this->info("Cache cleared for type: {$type}");
         } else {

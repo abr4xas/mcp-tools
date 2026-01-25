@@ -18,9 +18,14 @@ class ExportOpenApiCommand extends Command
 
     public function handle(): int
     {
-        $contractPath = $this->option('contract') ?? storage_path('api-contracts/api.json');
-        $outputPath = $this->option('output') ?? storage_path('api-contracts/openapi.json');
-        $format = $this->option('format') ?? 'json';
+        $contractOption = $this->option('contract');
+        $contractPath = (is_string($contractOption) ? $contractOption : null) ?? storage_path('api-contracts/api.json');
+        
+        $outputOption = $this->option('output');
+        $outputPath = (is_string($outputOption) ? $outputOption : null) ?? storage_path('api-contracts/openapi.json');
+        
+        $formatOption = $this->option('format');
+        $format = (is_string($formatOption) ? $formatOption : null) ?? 'json';
 
         if (! File::exists($contractPath)) {
             $this->error("Contract file not found: {$contractPath}");

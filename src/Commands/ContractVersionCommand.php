@@ -17,6 +17,10 @@ class ContractVersionCommand extends Command
     {
         $action = $this->argument('action');
 
+        if (! is_string($action)) {
+            $action = 'list';
+        }
+
         return match ($action) {
             'list' => $this->listVersions(),
             'restore' => $this->restoreVersion(),
@@ -74,7 +78,7 @@ class ContractVersionCommand extends Command
     {
         $versionFile = $this->option('file');
 
-        if (! $versionFile) {
+        if (! $versionFile || ! is_string($versionFile)) {
             $this->error('Version file is required. Use --file option.');
 
             return self::FAILURE;

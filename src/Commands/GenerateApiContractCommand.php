@@ -121,10 +121,10 @@ class GenerateApiContractCommand extends Command
 
     public function handle(): int
     {
-        $incremental = $this->option('incremental');
-        $enableLogging = $this->option('log');
-        $dryRun = $this->option('dry-run');
-        $validateSchemas = $this->option('validate-schemas');
+        $incremental = (bool) $this->option('incremental');
+        $enableLogging = (bool) $this->option('log');
+        $dryRun = (bool) $this->option('dry-run');
+        $validateSchemas = (bool) $this->option('validate-schemas');
 
         if ($dryRun) {
             $this->info('Running in dry-run mode (no file will be written)...');
