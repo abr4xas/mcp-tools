@@ -368,6 +368,21 @@ class FormRequestAnalyzer
                     $constraints[] = 'uuid';
                 } elseif ($part === 'date') {
                     $constraints[] = 'date';
+                } elseif (Str::startsWith($part, 'date_format:')) {
+                    $format = substr($part, 12);
+                    $constraints[] = 'date_format: ' . $format;
+                } elseif (Str::startsWith($part, 'file') || Str::startsWith($part, 'image')) {
+                    $constraints[] = 'file_upload';
+                    $type = 'file';
+                } elseif (Str::startsWith($part, 'mimes:')) {
+                    $mimes = substr($part, 6);
+                    $constraints[] = 'mime_types: ' . $mimes;
+                    $type = 'file';
+                } elseif (Str::startsWith($part, 'max:')) {
+                    $maxSize = substr($part, 4);
+                    if ($type === 'file') {
+                        $constraints[] = 'max_file_size: ' . $maxSize;
+                    }
                 } elseif (Str::startsWith($part, 'min:')) {
                     $constraints[] = $part;
                 } elseif (Str::startsWith($part, 'max:')) {
