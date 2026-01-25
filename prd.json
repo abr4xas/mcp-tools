@@ -466,7 +466,7 @@
       "Probar con logging habilitado",
       "Verificar que los logs son útiles para debugging"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "ui",

@@ -93,7 +93,32 @@ class GenerateApiContractCommand extends Command
         $errors = [];
         $modifiedFiles = $this->getModifiedFiles($incremental);
 
+        // Filter API routes
+        $apiRoutes = [];
         foreach ($routes as $route) {
+            $uri = $route->uri();
+            if (Str::startsWith($uri, 'api/')) {
+                $apiRoutes[] = $route;
+            }
+        }
+
+        // Create progress bar
+        $totalRoutes = 0;
+        foreach ($apiRoutes as $route) {
+            $methods = $route->methods();
+            foreach ($methods as $method) {
+                if ($method !== 'HEAD') {
+                    $totalRoutes++;
+                }
+            }
+        }
+
+        $progressBar = $this->output->createProgressBar($totalRoutes);
+        $progressBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% -- %message%');
+        $progressBar->setMessage('Starting...');
+        $progressBar->start();
+
+        foreach ($apiRoutes as $route) {
             $uri = $route->uri();
             if (! Str::startsWith($uri, 'api/')) {
                 continue;
@@ -118,12 +143,15 @@ class GenerateApiContractCommand extends Command
 
                 // Skip if incremental and route hasn't changed
                 if ($incremental && ! $this->shouldUpdateRoute($normalizedUri, $method, $action, $existingContract, $modifiedFiles)) {
-                    $this->output->writeln('Skipped (unchanged).');
+                    $progressBar->setMessage("Skipped: {$method} {$normalizedUri}");
+                    $progressBar->advance();
                     if ($enableLogging) {
                         \Log::debug("MCP Tools: Skipped route {$method} {$normalizedUri} (unchanged)");
                     }
                     continue;
                 }
+
+                $progressBar->setMessage("Processing: {$method} {$normalizedUri}");
 
                 try {
                     $pathParams = $this->routeAnalyzer->extractPathParams($normalizedUri, $action);
@@ -156,7 +184,8 @@ class GenerateApiContractCommand extends Command
                         'middleware' => $middleware,
                     ];
 
-                    $this->output->writeln('Done.');
+                    $progressBar->setMessage("Done: {$method} {$normalizedUri}");
+                    $progressBar->advance();
                     if ($enableLogging) {
                         \Log::info("MCP Tools: Successfully processed route {$method} {$normalizedUri}");
                     }
@@ -168,9 +197,8 @@ class GenerateApiContractCommand extends Command
                         'message' => $errorInfo['message'],
                         'suggestion' => $errorInfo['suggestion'],
                     ];
-                    $this->output->writeln("<error>Error: {$errorInfo['error_code']}</error>");
-                    $this->warn("  {$errorInfo['message']}");
-                    $this->line("  Suggestion: {$errorInfo['suggestion']}");
+                    $progressBar->setMessage("Error: {$errorInfo['error_code']} - {$normalizedUri}");
+                    $progressBar->advance();
                     
                     if ($enableLogging) {
                         \Log::warning("MCP Tools: Error processing route {$method} {$normalizedUri}", [
@@ -197,11 +225,22 @@ class GenerateApiContractCommand extends Command
                         'message' => $e->getMessage(),
                         'suggestion' => 'Check the error message and review the route configuration.',
                     ];
-                    $this->output->writeln("<error>Unexpected Error</error>");
-                    $this->warn("  {$e->getMessage()}");
+                    $progressBar->setMessage("Unexpected Error: {$normalizedUri}");
+                    $progressBar->advance();
+                    
+                    if ($enableLogging) {
+                        \Log::error("MCP Tools: Unexpected error processing route {$method} {$normalizedUri}", [
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString(),
+                        ]);
+                    }
                 }
             }
         }
+
+        $progressBar->setMessage('Completed');
+        $progressBar->finish();
+        $this->newLine(2);
 
         $directory = storage_path('api-contracts');
         if (! File::exists($directory)) {
