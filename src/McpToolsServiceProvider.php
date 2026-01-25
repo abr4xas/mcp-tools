@@ -3,6 +3,7 @@
 namespace Abr4xas\McpTools;
 
 use Abr4xas\McpTools\Commands\ClearCacheCommand;
+use Abr4xas\McpTools\Commands\ContractVersionCommand;
 use Abr4xas\McpTools\Commands\ExportOpenApiCommand;
 use Abr4xas\McpTools\Commands\GenerateApiContractCommand;
 use Spatie\LaravelPackageTools\Package;
@@ -21,6 +22,7 @@ class McpToolsServiceProvider extends PackageServiceProvider
             ->name('mcp-tools')
             ->hasCommand(GenerateApiContractCommand::class)
             ->hasCommand(ClearCacheCommand::class)
-            ->hasCommand(ExportOpenApiCommand::class);
+            ->hasCommand(ExportOpenApiCommand::class)
+            ->hasCommand(ContractVersionCommand::class);
     }
 }

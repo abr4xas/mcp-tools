@@ -179,6 +179,17 @@ class GenerateApiContractCommand extends Command
         }
 
         $fullPath = "{$directory}/api.json";
+        
+        // Save version before overwriting
+        if (File::exists($fullPath) && ! $incremental) {
+            $versionsDir = "{$directory}/versions";
+            if (! File::exists($versionsDir)) {
+                File::makeDirectory($versionsDir, 0755, true);
+            }
+            $versionName = 'api-' . date('Y-m-d-His') . '.json';
+            File::copy($fullPath, "{$versionsDir}/{$versionName}");
+        }
+
         $json = json_encode($contract, JSON_UNESCAPED_SLASHES);
 
         if ($json === false) {
@@ -189,6 +200,16 @@ class GenerateApiContractCommand extends Command
         }
 
         File::put($fullPath, $json);
+
+        // Add metadata
+        $metadata = [
+            'generated_at' => now()->toIso8601String(),
+            'git_commit' => $this->getGitCommit(),
+            'version' => '1.0.0',
+        ];
+        $contract['_metadata'] = $metadata;
+        $jsonWithMetadata = json_encode($contract, JSON_UNESCAPED_SLASHES);
+        File::put($fullPath, $jsonWithMetadata);
 
         $this->info("Contract generated at: {$fullPath}");
 
