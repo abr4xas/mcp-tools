@@ -80,7 +80,7 @@ The package provides four MCP tools:
 
 - **PHP 8.4+**: Required PHP version
 - **Laravel 11+ or 12+**: Framework version
-- **Laravel MCP**: For MCP tool integration
+- **Laravel MCP ^0.5.1**: For MCP tool integration
 - **PestPHP**: Testing framework (not PHPUnit)
 - **PHPStan Level 8**: Static analysis
 - **Laravel Pint**: Code formatting
@@ -105,7 +105,7 @@ The package provides four MCP tools:
 - Tools use properties `$name` and `$description` (not methods)
 - Tools implement `handle(Request $request): Response` method
 - Tools implement `schema(JsonSchema $schema): array` method for schema definition
-- Tools are automatically discovered by Laravel MCP server (no manual registration)
+- Tools must be manually registered in your Laravel MCP server configuration
 - Contract files are stored at `storage/api-contracts/api.json`
 - All analyzers support caching with file modification time validation
 - The package uses static analysis (no runtime code execution)
@@ -125,12 +125,12 @@ The package provides four MCP tools:
 ## Commands
 
 - `php artisan api:contract:generate` - Generate API contract
-- `php artisan api:contract:export` - Export to OpenAPI format
+- `php artisan api:export-openapi` - Export to OpenAPI format
 - `php artisan api:contract:versions` - Manage contract versions
 - `php artisan mcp-tools:health-check` - Health check
 - `php artisan mcp-tools:metrics` - Show metrics
 - `php artisan mcp-tools:clear-cache` - Clear cache
-- `php artisan mcp-tools:view-logs` - View logs
+- `php artisan mcp-tools:logs` - View logs
 
 ## Development Guidelines
 
