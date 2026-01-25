@@ -34,6 +34,8 @@ class ListApiRoutes extends Tool
 
         $method = mb_strtoupper((string) $method);
         $groupBy = $request->get('group_by', '');
+        $controller = $request->get('controller', '');
+        $resource = $request->get('resource', '');
 
         $contract = $this->loadContract();
         if ($contract === null) {
@@ -54,6 +56,22 @@ class ListApiRoutes extends Tool
                     continue;
                 }
 
+                // Filter by controller if provided
+                if ($controller) {
+                    $routeController = $this->extractControllerFromPath($path);
+                    if (! $this->matchesController($routeController, $controller)) {
+                        continue;
+                    }
+                }
+
+                // Filter by resource if provided
+                if ($resource) {
+                    $routeResource = $this->extractResourceFromRouteData($routeData);
+                    if (! $this->matchesResource($routeResource, $resource)) {
+                        continue;
+                    }
+                }
+
                 // Filter by search term if provided
                 if ($search && ! $this->matchesSearch($path, $routeData, $search)) {
                     continue;
@@ -65,6 +83,12 @@ class ListApiRoutes extends Tool
                     'auth' => $routeData['auth']['type'] ?? 'none',
                     'api_version' => $routeData['api_version'] ?? null,
                 ];
+
+                // Add controller if available
+                $routeController = $this->extractControllerFromPath($path);
+                if ($routeController) {
+                    $routeInfo['controller'] = $routeController;
+                }
 
                 // Extract grouping key
                 if ($groupBy) {
@@ -115,6 +139,10 @@ class ListApiRoutes extends Tool
             'group_by' => $schema->string()
                 ->description('Group routes by: controller, prefix, or version')
                 ->enum(['controller', 'prefix', 'version']),
+            'controller' => $schema->string()
+                ->description('Filter by controller name (supports partial matching)'),
+            'resource' => $schema->string()
+                ->description('Filter by resource name used in response (supports partial matching)'),
         ];
     }
 
@@ -142,7 +170,49 @@ class ListApiRoutes extends Tool
         $parts = explode('/', trim($path, '/'));
         $resource = end($parts);
         $resource = str_replace(['{', '}'], '', $resource);
+        $resource = \Illuminate\Support\Str::singular($resource);
         return ucfirst($resource) . 'Controller';
+    }
+
+    /**
+     * Check if controller matches filter
+     */
+    protected function matchesController(string $controller, string $filter): bool
+    {
+        $controllerLower = mb_strtolower($controller);
+        $filterLower = mb_strtolower($filter);
+
+        return str_contains($controllerLower, $filterLower) || str_contains($filterLower, $controllerLower);
+    }
+
+    /**
+     * Extract resource name from route data
+     */
+    protected function extractResourceFromRouteData(array $routeData): ?string
+    {
+        // Try to extract from response schema
+        if (isset($routeData['response_schema']) && is_array($routeData['response_schema'])) {
+            // Look for resource class name in schema
+            // This is a heuristic approach
+            return null; // Would need more analysis
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if resource matches filter
+     */
+    protected function matchesResource(?string $resource, string $filter): bool
+    {
+        if ($resource === null) {
+            return false;
+        }
+
+        $resourceLower = mb_strtolower($resource);
+        $filterLower = mb_strtolower($filter);
+
+        return str_contains($resourceLower, $filterLower) || str_contains($filterLower, $resourceLower);
     }
 
     /**

@@ -496,7 +496,7 @@
       "Verificar que el resumen es correcto",
       "Probar con errores y verificar que se detectan"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
