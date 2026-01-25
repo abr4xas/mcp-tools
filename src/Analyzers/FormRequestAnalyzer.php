@@ -120,6 +120,56 @@ class FormRequestAnalyzer
     }
 
     /**
+     * Extract type information including nullable and union types
+     *
+     * @return array{type: string, nullable: bool, union_types: array<int, string>}
+     */
+    public function extractTypeInfo(ReflectionParameter $param, ?string $phpDocType = null): array
+    {
+        $type = $param->getType();
+        $nullable = false;
+        $unionTypes = [];
+
+        if ($type instanceof ReflectionNamedType) {
+            $typeName = $type->getName();
+            $nullable = $type->allowsNull();
+            $unionTypes = [$typeName];
+        } elseif ($type instanceof \ReflectionUnionType) {
+            $types = $type->getTypes();
+            foreach ($types as $t) {
+                if ($t instanceof ReflectionNamedType) {
+                    $unionTypes[] = $t->getName();
+                    if ($t->allowsNull()) {
+                        $nullable = true;
+                    }
+                }
+            }
+        }
+
+        // Also check PHPDoc for type information
+        if ($phpDocType) {
+            if (str_contains($phpDocType, '|')) {
+                $docTypes = explode('|', $phpDocType);
+                $unionTypes = array_merge($unionTypes, array_map('trim', $docTypes));
+                $nullable = $nullable || in_array('null', array_map('strtolower', $docTypes), true);
+            }
+            if (str_starts_with($phpDocType, '?')) {
+                $nullable = true;
+                $unionTypes[] = substr($phpDocType, 1);
+            }
+        }
+
+        $primaryType = $unionTypes[0] ?? 'mixed';
+        $unionTypes = array_unique($unionTypes);
+
+        return [
+            'type' => $this->normalizeType($primaryType),
+            'nullable' => $nullable,
+            'union_types' => $unionTypes,
+        ];
+    }
+
+    /**
      * Extract query parameters from controller method without FormRequest
      *
      * @param  \ReflectionMethod  $reflection
@@ -231,6 +281,7 @@ class FormRequestAnalyzer
 
             $type = 'string';
             $required = false;
+            $nullable = false;
             $conditional = null;
 
             foreach ($ruleParts as $part) {
@@ -242,6 +293,8 @@ class FormRequestAnalyzer
 
                 if ($part === 'required') {
                     $required = true;
+                } elseif ($part === 'nullable') {
+                    $nullable = true;
                 } elseif ($part === 'sometimes') {
                     // Field is optional conditionally
                     $conditional = ['type' => 'sometimes', 'message' => 'Field is optional but validated if present'];
@@ -326,6 +379,7 @@ class FormRequestAnalyzer
             $fieldData = [
                 'type' => $type,
                 'required' => $required,
+                'nullable' => $nullable,
                 'constraints' => $constraints,
             ];
 
