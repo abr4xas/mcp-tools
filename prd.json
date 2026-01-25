@@ -437,7 +437,7 @@
       "Probar con contrato existente",
       "Verificar que las métricas son correctas"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",

@@ -48,12 +48,22 @@ class RouteAnalysisException extends AnalysisException
 
     protected function getSuggestion(): string
     {
+        $context = $this->getContext();
+        
         return match ($this->errorCode) {
-            'ROUTE_INVALID_ACTION' => 'Verify the route definition in your routes file. Ensure it uses the format: ControllerClass@methodName',
-            'ROUTE_CONTROLLER_NOT_FOUND' => 'Check that the controller class exists and the namespace is correct. Run: php artisan route:list to verify routes.',
-            'ROUTE_METHOD_NOT_FOUND' => 'Ensure the method exists in the controller and is declared as public.',
-            'ROUTE_REFLECTION_FAILED' => 'Check that the controller file is readable and the class can be autoloaded. Try running: composer dump-autoload',
-            default => 'Review the route configuration and ensure all controllers and methods are properly defined.',
+            'ROUTE_INVALID_ACTION' => 'Verify the route definition in your routes file. Ensure it uses the format: ControllerClass@methodName. ' .
+                'Check routes/api.php or routes/web.php for the route definition.',
+            'ROUTE_CONTROLLER_NOT_FOUND' => 'Check that the controller class exists and the namespace is correct. ' .
+                'Run: php artisan route:list to verify routes. ' .
+                'If the controller is in a subdirectory, ensure the namespace matches the directory structure.',
+            'ROUTE_METHOD_NOT_FOUND' => 'Ensure the method exists in the controller and is declared as public. ' .
+                'Check the controller file: ' . ($context['controller'] ?? 'unknown') . '. ' .
+                'Method names are case-sensitive in PHP.',
+            'ROUTE_REFLECTION_FAILED' => 'Check that the controller file is readable and the class can be autoloaded. ' .
+                'Try running: composer dump-autoload. ' .
+                'Verify file permissions and that the class follows PSR-4 autoloading standards.',
+            default => 'Review the route configuration and ensure all controllers and methods are properly defined. ' .
+                'For more help, run: php artisan mcp-tools:health-check',
         };
     }
 }
