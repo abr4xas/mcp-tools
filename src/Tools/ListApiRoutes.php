@@ -33,6 +33,7 @@ class ListApiRoutes extends Tool
         }
 
         $method = mb_strtoupper((string) $method);
+        $groupBy = $request->get('group_by', '');
 
         $contract = $this->loadContract();
         if ($contract === null) {
@@ -58,17 +59,35 @@ class ListApiRoutes extends Tool
                     continue;
                 }
 
-                $routes[] = [
+                $routeInfo = [
                     'path' => $path,
                     'method' => $httpMethod,
                     'auth' => $routeData['auth']['type'] ?? 'none',
                     'api_version' => $routeData['api_version'] ?? null,
                 ];
+
+                // Extract grouping key
+                if ($groupBy) {
+                    $routeInfo['_group_key'] = $this->extractGroupKey($path, $routeData, $groupBy);
+                }
+
+                $routes[] = $routeInfo;
             }
         }
 
         // Sort by path
         usort($routes, fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+
+        // Group if requested
+        if ($groupBy) {
+            $grouped = $this->groupRoutes($routes, $groupBy);
+            return Response::text(json_encode([
+                'total' => count($routes),
+                'limit' => $limit,
+                'grouped_by' => $groupBy,
+                'groups' => $grouped,
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        }
 
         // Apply limit
         $routes = array_slice($routes, 0, $limit);
@@ -93,7 +112,74 @@ class ListApiRoutes extends Tool
             'limit' => $schema->integer()
                 ->description('Maximum number of routes to return (default: 50, max: 200)')
                 ->default(50),
+            'group_by' => $schema->string()
+                ->description('Group routes by: controller, prefix, or version')
+                ->enum(['controller', 'prefix', 'version']),
         ];
+    }
+
+    /**
+     * Extract group key from route
+     *
+     * @param  array<string, mixed>  $routeData
+     */
+    protected function extractGroupKey(string $path, array $routeData, string $groupBy): string
+    {
+        return match ($groupBy) {
+            'controller' => $this->extractControllerFromPath($path),
+            'prefix' => $this->extractPrefixFromPath($path),
+            'version' => $routeData['api_version'] ?? 'unknown',
+            default => 'unknown',
+        };
+    }
+
+    /**
+     * Extract controller name from path (heuristic)
+     */
+    protected function extractControllerFromPath(string $path): string
+    {
+        // Extract resource name from path (e.g., /api/v1/users -> UsersController)
+        $parts = explode('/', trim($path, '/'));
+        $resource = end($parts);
+        $resource = str_replace(['{', '}'], '', $resource);
+        return ucfirst($resource) . 'Controller';
+    }
+
+    /**
+     * Extract prefix from path
+     */
+    protected function extractPrefixFromPath(string $path): string
+    {
+        // Extract prefix (e.g., /api/v1/users -> /api/v1)
+        $parts = explode('/', trim($path, '/'));
+        if (count($parts) >= 2) {
+            return '/' . implode('/', array_slice($parts, 0, 2));
+        }
+        return '/';
+    }
+
+    /**
+     * Group routes by key
+     *
+     * @param  array<int, array<string, mixed>>  $routes
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    protected function groupRoutes(array $routes, string $groupBy): array
+    {
+        $grouped = [];
+
+        foreach ($routes as $route) {
+            $key = $route['_group_key'] ?? 'unknown';
+            unset($route['_group_key']);
+
+            if (! isset($grouped[$key])) {
+                $grouped[$key] = [];
+            }
+
+            $grouped[$key][] = $route;
+        }
+
+        return $grouped;
     }
 
     /**

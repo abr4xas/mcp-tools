@@ -195,7 +195,7 @@
       "Probar búsqueda con typos",
       "Verificar que los resultados más relevantes aparecen primero"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
