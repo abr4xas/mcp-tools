@@ -106,7 +106,7 @@
       "Validar que el archivo generado es OpenAPI válido",
       "Probar importación del archivo en Swagger UI"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
