@@ -131,6 +131,12 @@ it('handles empty search matches', function () {
 });
 
 it('handles invalid contract structure gracefully', function () {
+    // Clear cache first to ensure fresh load
+    $reflection = new \ReflectionClass(ListApiRoutes::class);
+    $property = $reflection->getProperty('contractCache');
+    $property->setAccessible(true);
+    $property->setValue(null, []);
+
     // Create an invalid contract file
     $contractPath = storage_path('api-contracts');
     \Illuminate\Support\Facades\File::ensureDirectoryExists($contractPath);

@@ -417,6 +417,10 @@ class ListApiRoutes extends Tool
                 if (isset($routeData['path_parameters']) && ! is_array($routeData['path_parameters'])) {
                     return null;
                 }
+                // Check if auth field exists (required field)
+                if (! isset($routeData['auth'])) {
+                    return null;
+                }
             }
         }
 

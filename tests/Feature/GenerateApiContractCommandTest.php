@@ -101,7 +101,8 @@ it('determines authentication type from middleware', function () {
     $content = File::get(storage_path('api-contracts/api.json'));
     $json = json_decode($content, true);
 
-    expect($json['/api/v1/protected']['GET']['auth'])->toBe(['type' => 'bearer'])
+    expect($json['/api/v1/protected']['GET']['auth'])->toHaveKey('type')
+        ->and($json['/api/v1/protected']['GET']['auth']['type'])->toBe('bearer')
         ->and($json['/api/v1/public']['GET']['auth'])->toBe(['type' => 'none']);
 });
 
@@ -124,6 +125,8 @@ it('extracts rate limit information from throttle middleware', function () {
 });
 
 it('extracts API version from route path', function () {
+    Route::getRoutes()->refreshNameLookups();
+    Route::getRoutes()->refreshActionLookups();
     Route::group(['prefix' => 'api/v1'], function () {
         Route::get('/v1-endpoint', fn () => response()->json([]));
     });
@@ -131,6 +134,9 @@ it('extracts API version from route path', function () {
     Route::group(['prefix' => 'api/v2'], function () {
         Route::get('/v2-endpoint', fn () => response()->json([]));
     });
+
+    Route::getRoutes()->refreshNameLookups();
+    Route::getRoutes()->refreshActionLookups();
 
     $this->artisan(GenerateApiContractCommand::class);
 

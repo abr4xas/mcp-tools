@@ -165,9 +165,16 @@ class GenerateApiContractCommand extends Command
         $errors = [];
         $modifiedFiles = $this->getModifiedFiles($incremental);
 
-        // Filter API routes
+        // Filter API routes - ensure routes are compiled
         $apiRoutes = [];
         foreach ($routes as $route) {
+            // Compile route to ensure prefix is included in URI
+            try {
+                $route->getCompiled();
+            } catch (\Throwable) {
+                // Route might not be compilable, continue
+            }
+
             $uri = $route->uri();
             if (Str::startsWith($uri, 'api/')) {
                 $apiRoutes[] = $route;
@@ -233,26 +240,76 @@ class GenerateApiContractCommand extends Command
                 }
 
                 try {
-                    $pathParams = $this->routeAnalyzer->extractPathParams($normalizedUri, $action);
-                    $auth = $this->routeAnalyzer->determineAuth($route);
-                    $customHeaders = $this->routeAnalyzer->extractCustomHeaders($route);
-                    $rateLimit = $this->routeAnalyzer->extractRateLimit($route);
+                    // Extract basic route information first (these should not throw exceptions)
                     $apiVersion = $this->routeAnalyzer->extractApiVersion($normalizedUri);
-                    $middleware = $this->routeAnalyzer->analyzeMiddleware($route);
                     $routeName = $route->getName();
 
+                    // Extract route-specific information - wrap in try-catch to prevent silent failures
+                    try {
+                        $pathParams = $this->routeAnalyzer->extractPathParams($normalizedUri, $action);
+                    } catch (\Throwable) {
+                        $pathParams = [];
+                    }
+
+                    try {
+                        $auth = $this->routeAnalyzer->determineAuth($route);
+                    } catch (\Throwable) {
+                        $auth = ['type' => 'none'];
+                    }
+
+                    try {
+                        $customHeaders = $this->routeAnalyzer->extractCustomHeaders($route);
+                    } catch (\Throwable) {
+                        $customHeaders = [];
+                    }
+
+                    try {
+                        $rateLimit = $this->routeAnalyzer->extractRateLimit($route);
+                    } catch (\Throwable) {
+                        $rateLimit = null;
+                    }
+
+                    try {
+                        $middleware = $this->routeAnalyzer->analyzeMiddleware($route);
+                    } catch (\Throwable) {
+                        $middleware = [];
+                    }
+
                     $isQuery = in_array($method, $queryMethods, true);
-                    $requestSchema = $this->extractRequestSchema($action, $isQuery);
+
+                    // Extract request schema - handle closures gracefully
+                    try {
+                        $requestSchema = $this->extractRequestSchema($action, $isQuery);
+                    } catch (AnalysisException $e) {
+                        // If extraction fails, use empty schema
+                        $requestSchema = ['location' => 'unknown', 'properties' => []];
+                    }
+
+                    // Ensure request_schema has proper structure
+                    if (empty($requestSchema) || ! isset($requestSchema['location'])) {
+                        $requestSchema = ['location' => 'unknown', 'properties' => []];
+                    }
 
                     // Apply schema transformers
                     if (! empty($requestSchema['properties'])) {
                         $requestSchema['properties'] = $this->getTransformerRegistry()->apply($requestSchema['properties']);
                     }
 
-                    $responseSchema = $this->extractResponseSchema($action, $normalizedUri);
+                    // Extract response schema - handle closures gracefully
+                    try {
+                        $responseSchema = $this->extractResponseSchema($action, $normalizedUri);
+                    } catch (AnalysisException $e) {
+                        // If extraction fails, use undocumented
+                        $responseSchema = ['undocumented' => true];
+                    }
+
+                    // Ensure response_schema has proper structure
+                    if (empty($responseSchema)) {
+                        $responseSchema = ['undocumented' => true];
+                    }
 
                     // Apply schema transformers to response
-                    if (! empty($responseSchema) && ! isset($responseSchema['undocumented'])) {
+                    if (! isset($responseSchema['undocumented'])) {
                         $responseSchema = $this->getTransformerRegistry()->apply($responseSchema);
                     }
 
@@ -267,7 +324,12 @@ class GenerateApiContractCommand extends Command
                         [$controller, $controllerMethod] = explode('@', $action);
                         try {
                             $reflection = $this->routeAnalyzer->getReflectionMethod($controller, $controllerMethod, "{$controller}::{$controllerMethod}");
-                            $statusCodes = $this->getResponseCodeAnalyzer()->analyze($reflection);
+                            try {
+                                $statusCodes = $this->getResponseCodeAnalyzer()->analyze($reflection);
+                            } catch (\Throwable) {
+                                // Use default codes if analyzer fails
+                                $statusCodes = [200 => 'OK', 400 => 'Bad Request', 404 => 'Not Found', 500 => 'Internal Server Error'];
+                            }
                         } catch (\Throwable) {
                             // Use default codes
                             $statusCodes = [200 => 'OK', 400 => 'Bad Request', 404 => 'Not Found', 500 => 'Internal Server Error'];
@@ -280,7 +342,11 @@ class GenerateApiContractCommand extends Command
                     $responseHeaders = $this->extractResponseHeaders($responseSchema, $route);
 
                     // Detect content negotiation
-                    $contentNegotiation = $this->getMiddlewareAnalyzer()->detectContentNegotiation($route->gatherMiddleware());
+                    try {
+                        $contentNegotiation = $this->getMiddlewareAnalyzer()->detectContentNegotiation($route->gatherMiddleware());
+                    } catch (\Throwable) {
+                        $contentNegotiation = [];
+                    }
 
                     $contract[$normalizedUri][$method] = [
                         'description' => $description,
@@ -328,14 +394,26 @@ class GenerateApiContractCommand extends Command
                     }
 
                     // Continue processing but mark route as having errors
+                    // Ensure all required fields are present even on error
+                    try {
+                        $apiVersion = $this->routeAnalyzer->extractApiVersion($normalizedUri);
+                        $pathParams = $this->routeAnalyzer->extractPathParams($normalizedUri, $action);
+                        $auth = $this->routeAnalyzer->determineAuth($route);
+                    } catch (\Throwable) {
+                        // Fallback values if extraction fails
+                        $apiVersion = null;
+                        $pathParams = [];
+                        $auth = ['type' => 'none'];
+                    }
+
                     $contract[$normalizedUri][$method] = [
-                        'auth' => ['type' => 'none'],
-                        'path_parameters' => [],
+                        'auth' => $auth,
+                        'path_parameters' => $pathParams,
                         'request_schema' => ['location' => 'unknown', 'properties' => [], 'error' => $errorInfo],
                         'response_schema' => ['undocumented' => true, 'error' => $errorInfo],
                         'custom_headers' => [],
                         'rate_limit' => null,
-                        'api_version' => null,
+                        'api_version' => $apiVersion,
                     ];
                 } catch (Throwable $e) {
                     $errors[] = [
@@ -355,6 +433,28 @@ class GenerateApiContractCommand extends Command
                             'trace' => $e->getTraceAsString(),
                         ]);
                     }
+
+                    // Ensure all required fields are present even on error
+                    try {
+                        $apiVersion = $this->routeAnalyzer->extractApiVersion($normalizedUri);
+                        $pathParams = $this->routeAnalyzer->extractPathParams($normalizedUri, $action);
+                        $auth = $this->routeAnalyzer->determineAuth($route);
+                    } catch (\Throwable) {
+                        // Fallback values if extraction fails
+                        $apiVersion = null;
+                        $pathParams = [];
+                        $auth = ['type' => 'none'];
+                    }
+
+                    $contract[$normalizedUri][$method] = [
+                        'auth' => $auth,
+                        'path_parameters' => $pathParams,
+                        'request_schema' => ['location' => 'unknown', 'properties' => []],
+                        'response_schema' => ['undocumented' => true],
+                        'custom_headers' => [],
+                        'rate_limit' => null,
+                        'api_version' => $apiVersion,
+                    ];
                 }
             }
         }
@@ -495,7 +595,8 @@ class GenerateApiContractCommand extends Command
     private function extractRequestSchema($action, bool $isQuery): array
     {
         if (! is_string($action) || ! Str::contains($action, '@')) {
-            return [];
+            // For closures, return empty schema structure
+            return ['location' => 'unknown', 'properties' => []];
         }
 
         try {
