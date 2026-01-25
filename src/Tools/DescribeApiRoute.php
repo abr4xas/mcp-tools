@@ -42,7 +42,11 @@ class DescribeApiRoute extends Tool
 
         $contract = $this->loadContract();
         if ($contract === null) {
-            return Response::text("Error: Contract not found. Run 'php artisan api:contract:generate'.");
+            $fullPath = storage_path('api-contracts/api.json');
+            if (! File::exists($fullPath)) {
+                return Response::text("Error: Contract not found. Run 'php artisan api:contract:generate'.");
+            }
+            return Response::text("Error: Contract file exists but has invalid structure. Please regenerate the contract with 'php artisan api:contract:generate'.");
         }
 
         $routeData = $this->findRouteData($contract, $normalizedPath, $method);
@@ -158,6 +162,22 @@ class DescribeApiRoute extends Tool
 
         if (! is_array($contract)) {
             return null;
+        }
+
+        // Validate contract structure
+        foreach ($contract as $path => $methods) {
+            if (! is_array($methods)) {
+                return null;
+            }
+            foreach ($methods as $httpMethod => $routeData) {
+                if (! is_array($routeData)) {
+                    return null;
+                }
+                // Check if path_parameters exists and is array
+                if (isset($routeData['path_parameters']) && ! is_array($routeData['path_parameters'])) {
+                    return null;
+                }
+            }
         }
 
         self::$contractCache[$cacheKey] = $contract;

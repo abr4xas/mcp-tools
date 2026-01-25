@@ -2,35 +2,36 @@
 
 namespace Abr4xas\McpTools\Commands;
 
-use Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
-use Abr4xas\McpTools\Analyzers\MiddlewareAnalyzer;
-use Abr4xas\McpTools\Analyzers\PhpDocAnalyzer;
-use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
-use Abr4xas\McpTools\Analyzers\ResponseCodeAnalyzer;
-use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
-use Abr4xas\McpTools\Exceptions\AnalysisException;
-use Abr4xas\McpTools\Exceptions\FormRequestAnalysisException;
-use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
-use Abr4xas\McpTools\Exceptions\RouteAnalysisException;
-use Abr4xas\McpTools\Services\AstCacheService;
-use Abr4xas\McpTools\Services\JsonSchemaValidator;
-use Abr4xas\McpTools\Services\SchemaTransformerRegistry;
-use Illuminate\Console\Command;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use Illuminate\Routing\Route as RoutingRoute;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Str;
+use Throwable;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
-use Throwable;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Illuminate\Console\Command;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Foundation\Http\FormRequest;
+use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
+use Illuminate\Routing\Route as RoutingRoute;
+use Abr4xas\McpTools\Analyzers\PhpDocAnalyzer;
+use Abr4xas\McpTools\Services\AstCacheService;
+use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
+use Abr4xas\McpTools\Analyzers\MiddlewareAnalyzer;
+use Abr4xas\McpTools\Exceptions\AnalysisException;
+use Abr4xas\McpTools\Services\JsonSchemaValidator;
+use Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
+use Abr4xas\McpTools\Analyzers\ResponseCodeAnalyzer;
+use Abr4xas\McpTools\Exceptions\RouteAnalysisException;
+use Abr4xas\McpTools\Services\SchemaTransformerRegistry;
+use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
+use Abr4xas\McpTools\Exceptions\FormRequestAnalysisException;
 
 class GenerateApiContractCommand extends Command
 {
-    protected $signature = 'api:contract:generate 
+    protected $signature = 'api:contract:generate
                             {--incremental : Only update routes that have been modified}
                             {--log : Enable detailed logging for debugging}
                             {--dry-run : Validate and show summary without writing file}
@@ -135,7 +136,7 @@ class GenerateApiContractCommand extends Command
         }
 
         if ($enableLogging) {
-            \Log::info('MCP Tools: Starting API contract generation', [
+            Log::info('MCP Tools: Starting API contract generation', [
                 'incremental' => $incremental,
                 'timestamp' => now()->toIso8601String(),
             ]);
@@ -153,6 +154,10 @@ class GenerateApiContractCommand extends Command
                 $existingContract = $existing;
             }
         }
+
+        // Refresh routes to ensure all registered routes are available
+        Route::getRoutes()->refreshNameLookups();
+        Route::getRoutes()->refreshActionLookups();
 
         $routes = Route::getRoutes()->getRoutes();
         $contract = $incremental ? $existingContract : [];
@@ -180,10 +185,14 @@ class GenerateApiContractCommand extends Command
             }
         }
 
-        $progressBar = $this->output->createProgressBar($totalRoutes);
-        $progressBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% -- %message%');
-        $progressBar->setMessage('Starting...');
-        $progressBar->start();
+        // Only create progress bar if there are routes to process
+        $progressBar = null;
+        if ($totalRoutes > 0) {
+            $progressBar = $this->output->createProgressBar($totalRoutes);
+            $progressBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %memory:6s% -- %message%');
+            $progressBar->setMessage('Starting...');
+            $progressBar->start();
+        }
 
         foreach ($apiRoutes as $route) {
             $uri = $route->uri();
@@ -200,26 +209,29 @@ class GenerateApiContractCommand extends Command
                     continue;
                 }
 
-                $this->output->write("Processing {$method} {$normalizedUri} ... ");
 
                 if ($enableLogging) {
-                    \Log::info("MCP Tools: Processing route {$method} {$normalizedUri}", [
+                    Log::info("MCP Tools: Processing route {$method} {$normalizedUri}", [
                         'action' => $action,
                     ]);
                 }
 
                 // Skip if incremental and route hasn't changed
                 if ($incremental && ! $this->shouldUpdateRoute($normalizedUri, $method, $action, $existingContract, $modifiedFiles)) {
-                    $progressBar->setMessage("Skipped: {$method} {$normalizedUri}");
-                    $progressBar->advance();
+                    if ($progressBar) {
+                        $progressBar->setMessage("Skipped: {$method} {$normalizedUri}");
+                        $progressBar->advance();
+                    }
                     if ($enableLogging) {
-                        \Log::debug("MCP Tools: Skipped route {$method} {$normalizedUri} (unchanged)");
+                        Log::debug("MCP Tools: Skipped route {$method} {$normalizedUri} (unchanged)");
                     }
 
                     continue;
                 }
 
-                $progressBar->setMessage("Processing: {$method} {$normalizedUri}");
+                if ($progressBar) {
+                    $progressBar->setMessage("Processing: {$method} {$normalizedUri}");
+                }
 
                 try {
                     $pathParams = $this->routeAnalyzer->extractPathParams($normalizedUri, $action);
@@ -288,10 +300,12 @@ class GenerateApiContractCommand extends Command
                         'content_negotiation' => $contentNegotiation,
                     ];
 
-                    $progressBar->setMessage("Done: {$method} {$normalizedUri}");
-                    $progressBar->advance();
+                    if ($progressBar) {
+                        $progressBar->setMessage("Done: {$method} {$normalizedUri}");
+                        $progressBar->advance();
+                    }
                     if ($enableLogging) {
-                        \Log::info("MCP Tools: Successfully processed route {$method} {$normalizedUri}");
+                        Log::info("MCP Tools: Successfully processed route {$method} {$normalizedUri}");
                     }
                 } catch (AnalysisException $e) {
                     $errorInfo = $e->toArray();
@@ -301,11 +315,13 @@ class GenerateApiContractCommand extends Command
                         'message' => $errorInfo['message'],
                         'suggestion' => $errorInfo['suggestion'],
                     ];
-                    $progressBar->setMessage("Error: {$errorInfo['error_code']} - {$normalizedUri}");
-                    $progressBar->advance();
+                    if ($progressBar) {
+                        $progressBar->setMessage("Error: {$errorInfo['error_code']} - {$normalizedUri}");
+                        $progressBar->advance();
+                    }
 
                     if ($enableLogging) {
-                        \Log::warning("MCP Tools: Error processing route {$method} {$normalizedUri}", [
+                        Log::warning("MCP Tools: Error processing route {$method} {$normalizedUri}", [
                             'error_code' => $errorInfo['error_code'],
                             'message' => $errorInfo['message'],
                             'context' => $errorInfo['context'],
@@ -329,11 +345,13 @@ class GenerateApiContractCommand extends Command
                         'message' => $e->getMessage(),
                         'suggestion' => 'Check the error message and review the route configuration.',
                     ];
-                    $progressBar->setMessage("Unexpected Error: {$normalizedUri}");
-                    $progressBar->advance();
+                    if ($progressBar) {
+                        $progressBar->setMessage("Unexpected Error: {$normalizedUri}");
+                        $progressBar->advance();
+                    }
 
                     if ($enableLogging) {
-                        \Log::error("MCP Tools: Unexpected error processing route {$method} {$normalizedUri}", [
+                        Log::error("MCP Tools: Unexpected error processing route {$method} {$normalizedUri}", [
                             'error' => $e->getMessage(),
                             'trace' => $e->getTraceAsString(),
                         ]);
@@ -342,9 +360,11 @@ class GenerateApiContractCommand extends Command
             }
         }
 
-        $progressBar->setMessage('Completed');
-        $progressBar->finish();
-        $this->newLine(2);
+        if ($progressBar) {
+            $progressBar->setMessage('Completed');
+            $progressBar->finish();
+            $this->newLine(2);
+        }
 
         // Show summary
         $totalRoutes = 0;
@@ -457,7 +477,7 @@ class GenerateApiContractCommand extends Command
         }
 
         if ($enableLogging) {
-            \Log::info('MCP Tools: API contract generation completed', [
+            Log::info('MCP Tools: API contract generation completed', [
                 'total_routes' => count($contract),
                 'errors' => count($errors),
                 'duration' => microtime(true) - LARAVEL_START,
