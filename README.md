@@ -3,7 +3,140 @@
     <img alt="Logo for essentials" src="art/banner-light.png">
   </picture>
 
-# MCP Tools for Laravel
+# MCP Tools
+
+A Laravel package for generating and managing API contracts with MCP (Model Context Protocol) integration.
+
+## Features
+
+- **Automatic API Contract Generation**: Generate comprehensive API contracts from your Laravel routes
+- **MCP Tools Integration**: List and describe API routes through MCP tools
+- **Advanced Analysis**: Deep analysis of routes, FormRequests, Resources, and middleware
+- **OpenAPI Export**: Export contracts to OpenAPI 3.0 format
+- **Caching**: Intelligent caching for improved performance
+- **Validation**: JSON Schema validation for generated contracts
+
+## Installation
+
+```bash
+composer require abr4xas/mcp-tools
+```
+
+## Usage
+
+### Generate API Contract
+
+```bash
+php artisan api:contract:generate
+```
+
+Options:
+- `--incremental`: Only update routes that have been modified
+- `--log`: Enable detailed logging
+- `--dry-run`: Validate without writing file
+- `--validate-schemas`: Validate generated schemas against JSON Schema
+
+### List API Routes
+
+Use the MCP tool `list-api-routes` to query your API routes:
+
+```json
+{
+  "method": ["GET", "POST"],
+  "version": "v1",
+  "search": "users",
+  "page": 1,
+  "per_page": 20
+}
+```
+
+### Describe API Route
+
+Use the MCP tool `describe-api-route` to get detailed information about a route:
+
+```json
+{
+  "path": "/api/v1/users/{id}",
+  "method": "GET"
+}
+```
+
+### Export to OpenAPI
+
+```bash
+php artisan api:contract:export-openapi
+```
+
+### Clear Cache
+
+```bash
+php artisan api:contract:clear-cache
+```
+
+### Health Check
+
+```bash
+php artisan api:contract:health-check
+```
+
+### View Metrics
+
+```bash
+php artisan api:contract:metrics
+```
+
+## Configuration
+
+The package automatically detects:
+- Route parameters and types
+- Authentication requirements
+- Rate limiting
+- Middleware
+- Request validation rules
+- Response schemas
+- HTTP status codes
+- Headers
+
+## Extending
+
+### Custom Schema Transformers
+
+Create a transformer implementing `SchemaTransformerInterface`:
+
+```php
+use Abr4xas\McpTools\Interfaces\SchemaTransformerInterface;
+
+class CustomTransformer implements SchemaTransformerInterface
+{
+    public function transform(array $schema): array
+    {
+        // Transform schema
+        return $schema;
+    }
+
+    public function getPriority(): int
+    {
+        return 100;
+    }
+}
+```
+
+Register it in your service provider:
+
+```php
+$this->app->make(SchemaTransformerRegistry::class)
+    ->register(new CustomTransformer());
+```
+
+## Testing
+
+```bash
+composer test
+```
+
+## License
+
+MIT for Laravel
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/abr4xas/mcp-tools.svg?style=flat-square)](https://packagist.org/packages/abr4xas/mcp-tools)
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/abr4xas/mcp-tools/run-tests.yml?branch=master&label=tests&style=flat-square)](https://github.com/abr4xas/mcp-tools/actions?query=workflow%3Arun-tests+branch%3Amaster)
