@@ -3,18 +3,23 @@
 namespace Abr4xas\McpTools\Commands;
 
 use Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
+use Abr4xas\McpTools\Analyzers\MiddlewareAnalyzer;
 use Abr4xas\McpTools\Analyzers\PhpDocAnalyzer;
 use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
+use Abr4xas\McpTools\Analyzers\ResponseCodeAnalyzer;
 use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
 use Abr4xas\McpTools\Exceptions\AnalysisException;
 use Abr4xas\McpTools\Exceptions\FormRequestAnalysisException;
 use Abr4xas\McpTools\Exceptions\ResourceAnalysisException;
 use Abr4xas\McpTools\Exceptions\RouteAnalysisException;
 use Abr4xas\McpTools\Services\AstCacheService;
+use Abr4xas\McpTools\Services\JsonSchemaValidator;
+use Abr4xas\McpTools\Services\SchemaTransformerRegistry;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route as RoutingRoute;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -43,6 +48,14 @@ class GenerateApiContractCommand extends Command
 
     protected AstCacheService $astCache;
 
+    protected ?SchemaTransformerRegistry $transformerRegistry = null;
+
+    protected ?ResponseCodeAnalyzer $responseCodeAnalyzer = null;
+
+    protected ?MiddlewareAnalyzer $middlewareAnalyzer = null;
+
+    protected ?JsonSchemaValidator $schemaValidator = null;
+
     public function __construct(
         RouteAnalyzer $routeAnalyzer,
         FormRequestAnalyzer $formRequestAnalyzer,
@@ -56,6 +69,54 @@ class GenerateApiContractCommand extends Command
         $this->resourceAnalyzer = $resourceAnalyzer;
         $this->phpDocAnalyzer = $phpDocAnalyzer;
         $this->astCache = $astCache;
+    }
+
+    /**
+     * Get transformer registry, resolving from container if needed
+     */
+    protected function getTransformerRegistry(): SchemaTransformerRegistry
+    {
+        if ($this->transformerRegistry === null) {
+            $this->transformerRegistry = app(SchemaTransformerRegistry::class);
+        }
+
+        return $this->transformerRegistry;
+    }
+
+    /**
+     * Get response code analyzer, resolving from container if needed
+     */
+    protected function getResponseCodeAnalyzer(): ResponseCodeAnalyzer
+    {
+        if ($this->responseCodeAnalyzer === null) {
+            $this->responseCodeAnalyzer = app(ResponseCodeAnalyzer::class);
+        }
+
+        return $this->responseCodeAnalyzer;
+    }
+
+    /**
+     * Get middleware analyzer, resolving from container if needed
+     */
+    protected function getMiddlewareAnalyzer(): MiddlewareAnalyzer
+    {
+        if ($this->middlewareAnalyzer === null) {
+            $this->middlewareAnalyzer = app(MiddlewareAnalyzer::class);
+        }
+
+        return $this->middlewareAnalyzer;
+    }
+
+    /**
+     * Get schema validator, resolving from container if needed
+     */
+    protected function getSchemaValidator(): JsonSchemaValidator
+    {
+        if ($this->schemaValidator === null) {
+            $this->schemaValidator = app(JsonSchemaValidator::class);
+        }
+
+        return $this->schemaValidator;
     }
 
     public function handle(): int
@@ -174,20 +235,20 @@ class GenerateApiContractCommand extends Command
 
                     // Apply schema transformers
                     if (! empty($requestSchema['properties'])) {
-                        $requestSchema['properties'] = $this->transformerRegistry->apply($requestSchema['properties']);
+                        $requestSchema['properties'] = $this->getTransformerRegistry()->apply($requestSchema['properties']);
                     }
 
                     $responseSchema = $this->extractResponseSchema($action, $normalizedUri);
 
                     // Apply schema transformers to response
                     if (! empty($responseSchema) && ! isset($responseSchema['undocumented'])) {
-                        $responseSchema = $this->transformerRegistry->apply($responseSchema);
+                        $responseSchema = $this->getTransformerRegistry()->apply($responseSchema);
                     }
 
                     // Extract PHPDoc description and deprecated status
                     $descriptionData = $this->extractDescription($action, $method);
-                    $description = is_array($descriptionData) ? ($descriptionData['description'] ?? null) : $descriptionData;
-                    $deprecated = is_array($descriptionData) ? ($descriptionData['deprecated'] ?? null) : null;
+                    $description = ($descriptionData !== null) ? ($descriptionData['description'] ?? null) : null;
+                    $deprecated = ($descriptionData !== null) ? ($descriptionData['deprecated'] ?? null) : null;
 
                     // Extract possible HTTP status codes
                     $statusCodes = [];
@@ -195,7 +256,7 @@ class GenerateApiContractCommand extends Command
                         [$controller, $controllerMethod] = explode('@', $action);
                         try {
                             $reflection = $this->routeAnalyzer->getReflectionMethod($controller, $controllerMethod, "{$controller}::{$controllerMethod}");
-                            $statusCodes = $this->responseCodeAnalyzer->analyze($reflection);
+                            $statusCodes = $this->getResponseCodeAnalyzer()->analyze($reflection);
                         } catch (\Throwable) {
                             // Use default codes
                             $statusCodes = [200 => 'OK', 400 => 'Bad Request', 404 => 'Not Found', 500 => 'Internal Server Error'];
@@ -205,10 +266,10 @@ class GenerateApiContractCommand extends Command
                     }
 
                     // Extract response headers
-                    $responseHeaders = $this->extractResponseHeaders($responseSchema, $routeData);
+                    $responseHeaders = $this->extractResponseHeaders($responseSchema, $route);
 
                     // Detect content negotiation
-                    $contentNegotiation = $this->middlewareAnalyzer->detectContentNegotiation($route->gatherMiddleware());
+                    $contentNegotiation = $this->getMiddlewareAnalyzer()->detectContentNegotiation($route->gatherMiddleware());
 
                     $contract[$normalizedUri][$method] = [
                         'description' => $description,
@@ -298,13 +359,13 @@ class GenerateApiContractCommand extends Command
             foreach ($contract as $path => $methods) {
                 foreach ($methods as $method => $routeData) {
                     if (isset($routeData['request_schema']['properties'])) {
-                        $validation = $this->schemaValidator->validate($routeData['request_schema']['properties']);
+                        $validation = $this->getSchemaValidator()->validate($routeData['request_schema']['properties']);
                         if (! $validation['valid']) {
                             $schemaErrors["{$path}:{$method}:request"] = $validation['errors'];
                         }
                     }
                     if (isset($routeData['response_schema']) && ! isset($routeData['response_schema']['undocumented'])) {
-                        $validation = $this->schemaValidator->validate($routeData['response_schema']);
+                        $validation = $this->getSchemaValidator()->validate($routeData['response_schema']);
                         if (! $validation['valid']) {
                             $schemaErrors["{$path}:{$method}:response"] = $validation['errors'];
                         }
@@ -614,8 +675,15 @@ class GenerateApiContractCommand extends Command
 
         try {
             // Very simple static analysis: check use statements or new keywords in file
+            /** @var class-string $responseClass */
             $ref = new ReflectionClass($responseClass);
-            $content = file_get_contents($ref->getFileName());
+            $fileName = $ref->getFileName();
+            if ($fileName === false) {
+                $cache[$responseClass] = null;
+
+                return null;
+            }
+            $content = file_get_contents($fileName);
 
             if ($content === false) {
                 $cache[$responseClass] = null;
@@ -654,19 +722,6 @@ class GenerateApiContractCommand extends Command
         $cache[$responseClass] = null;
 
         return null;
-    }
-
-    private function getClassNameFromFile($fileItem): string
-    {
-        $path = $fileItem->getPath();
-        $base = app_path('Http/Resources');
-        $relative = mb_trim(str_replace($base, '', $path), DIRECTORY_SEPARATOR);
-        $namespace = 'App\\Http\\Resources';
-        if ($relative !== '' && $relative !== '0') {
-            $namespace .= '\\'.str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
-        }
-
-        return $namespace.'\\'.$fileItem->getFilenameWithoutExtension();
     }
 
     /**
@@ -835,7 +890,8 @@ class GenerateApiContractCommand extends Command
             }
 
             // If not found in use statements, try to find in available resources
-            foreach ($this->availableResources as $name => $fullClass) {
+            $availableResources = $this->resourceAnalyzer->getAvailableResources();
+            foreach ($availableResources as $name => $fullClass) {
                 if ($name === $shortName || Str::endsWith($fullClass, "\\{$shortName}")) {
                     return $fullClass;
                 }
@@ -851,8 +907,9 @@ class GenerateApiContractCommand extends Command
      * Extract description from PHPDoc of controller method
      *
      * @param  mixed  $action
+     * @return array<string, mixed>|null
      */
-    private function extractDescription($action, string $method): ?string
+    private function extractDescription($action, string $method): ?array
     {
         if (! is_string($action) || ! Str::contains($action, '@')) {
             return null;
@@ -866,7 +923,7 @@ class GenerateApiContractCommand extends Command
             $phpDoc = $this->phpDocAnalyzer->extractFromMethod($reflection);
 
             // Check for PHP 8 #[Deprecated] attribute
-            $deprecated = $phpDoc['deprecated'];
+            $deprecated = $phpDoc['deprecated'] ?? null;
             $attributes = $reflection->getAttributes();
             foreach ($attributes as $attribute) {
                 $attributeName = $attribute->getName();
@@ -890,6 +947,38 @@ class GenerateApiContractCommand extends Command
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /**
+     * Extract response headers from schema and route
+     *
+     * @param  array<string, mixed>  $responseSchema
+     * @return array<int, array{name: string, description?: string}>
+     */
+    private function extractResponseHeaders(array $responseSchema, RoutingRoute $route): array
+    {
+        $headers = [];
+
+        // Common response headers based on content type
+        if (isset($responseSchema['type']) && $responseSchema['type'] === 'array') {
+            $headers[] = [
+                'name' => 'Content-Type',
+                'description' => 'application/json',
+            ];
+        }
+
+        // Extract custom headers from route
+        $customHeaders = $this->routeAnalyzer->extractCustomHeaders($route);
+        foreach ($customHeaders as $header) {
+            if (isset($header['name'])) {
+                $headers[] = [
+                    'name' => $header['name'],
+                    'description' => $header['description'] ?? null,
+                ];
+            }
+        }
+
+        return $headers;
     }
 
     /**
@@ -1036,7 +1125,7 @@ class GenerateApiContractCommand extends Command
 
         // Check if related files were modified (FormRequest, Resource, etc.)
         $routeData = $existingContract[$normalizedUri][$method] ?? [];
-        
+
         // This is a simplified check - in a real scenario, you'd track all related files
         return false;
     }

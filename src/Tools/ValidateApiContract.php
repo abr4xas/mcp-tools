@@ -31,23 +31,28 @@ class ValidateApiContract extends Tool
         $contractPath = $request->get('contract_path', storage_path('api-contracts/api.json'));
 
         if (! File::exists($contractPath)) {
-            return Response::text(json_encode([
+            $json = json_encode([
                 'valid' => false,
                 'errors' => ['Contract file not found. Run "php artisan api:contract:generate" to create it.'],
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+            return Response::text($json === false ? '{"valid":false}' : $json);
         }
 
         $contract = json_decode(File::get($contractPath), true);
         if (! is_array($contract)) {
-            return Response::text(json_encode([
+            $json = json_encode([
                 'valid' => false,
                 'errors' => ['Invalid contract file format. Expected JSON object.'],
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+            return Response::text($json === false ? '{"valid":false}' : $json);
         }
 
         $validation = $this->validateContract($contract);
+        $json = json_encode($validation, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
-        return Response::text(json_encode($validation, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        return Response::text($json === false ? '{}' : $json);
     }
 
     public function schema(JsonSchema $schema): array
@@ -62,8 +67,8 @@ class ValidateApiContract extends Tool
     /**
      * Validate contract against current routes
      *
-     * @param  array<string, array>  $contract
-     * @return array{valid: bool, issues: array<string, mixed>, summary: array<string, int>}
+     * @param  array<string, array<string, mixed>>  $contract
+     * @return array{valid: bool, issues: list<array<string, mixed>>, summary: array<string, int>}
      */
     protected function validateContract(array $contract): array
     {
@@ -141,7 +146,7 @@ class ValidateApiContract extends Tool
     /**
      * Get current routes from application
      *
-     * @return array<string, array<string, array>>
+     * @return array<string, array<string, array<string, mixed>>>
      */
     protected function getCurrentRoutes(): array
     {
@@ -179,8 +184,8 @@ class ValidateApiContract extends Tool
     /**
      * Normalize contract routes to same format as current routes
      *
-     * @param  array<string, array>  $contract
-     * @return array<string, array<string, array>>
+     * @param  array<string, array<string, mixed>>  $contract
+     * @return array<string, array<string, array<string, mixed>>>
      */
     protected function normalizeContractRoutes(array $contract): array
     {

@@ -10,8 +10,12 @@ abstract class AnalysisException extends Exception
 {
     protected string $errorCode;
 
+    /** @var array<string, mixed> */
     protected array $context = [];
 
+    /**
+     * @param  array<string, mixed>  $context
+     */
     public function __construct(string $message, string $errorCode, array $context = [], ?\Throwable $previous = null)
     {
         parent::__construct($message, 0, $previous);
@@ -24,11 +28,17 @@ abstract class AnalysisException extends Exception
         return $this->errorCode;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getContext(): array
     {
         return $this->context;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(): array
     {
         return [

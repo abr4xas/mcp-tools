@@ -14,7 +14,7 @@ class DescribeApiRoute extends Tool
 {
     protected string $description = 'Get the public API contract for a specific route and method.';
 
-    /** @var array<string, array> */
+    /** @var array<string, array<string, mixed>> */
     protected static array $contractCache = [];
 
     public function handle(Request $request): Response
@@ -48,7 +48,7 @@ class DescribeApiRoute extends Tool
         $routeData = $this->findRouteData($contract, $normalizedPath, $method);
 
         if ($routeData === null) {
-            return Response::text(json_encode(['undocumented' => true], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            return Response::text((string) json_encode(['undocumented' => true], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         }
 
         // Support searching by route name
@@ -69,7 +69,7 @@ class DescribeApiRoute extends Tool
             }
         }
 
-        return Response::text(json_encode($routeData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        return Response::text((string) json_encode($routeData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     /**
@@ -111,10 +111,12 @@ class DescribeApiRoute extends Tool
             }
         }
 
-        return Response::text(json_encode([
+        $json = json_encode([
             'batch_results' => $results,
             'total_operations' => count($results),
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        return Response::text($json === false ? '{}' : $json);
     }
 
     public function schema(JsonSchema $schema): array
@@ -135,7 +137,7 @@ class DescribeApiRoute extends Tool
     /**
      * Load contract from cache or file system
      *
-     * @return array<string, array>|null
+     * @return array<string, array<string, mixed>>|null
      */
     protected function loadContract(): ?array
     {
@@ -166,7 +168,7 @@ class DescribeApiRoute extends Tool
     /**
      * Find route data in contract, trying exact match first, then pattern matching
      *
-     * @param  array<string, array>  $contract
+     * @param  array<string, array<string, mixed>>  $contract
      * @return array<string, mixed>|null
      */
     protected function findRouteData(array $contract, string $path, string $method): ?array
@@ -224,7 +226,8 @@ class DescribeApiRoute extends Tool
         $escaped = preg_replace_callback(
             '#\\\\\{([^}:]+):([^}]+)\\\\}#',
             function ($matches) {
-                $constraint = $matches[2] ?? '';
+                // preg_replace_callback always provides $matches[2] when pattern matches
+                $constraint = (string) $matches[2];
 
                 return match (strtolower($constraint)) {
                     'number', 'int', 'integer' => '\d+',
@@ -234,15 +237,19 @@ class DescribeApiRoute extends Tool
                     default => '[^/]+',
                 };
             },
-            $escaped
+            $escaped ?? ''
         );
 
         // Replace {param} with required segment [^/]+
-        $escaped = preg_replace('#\\\\\{([^}]+)\\\\}#', '[^/]+', (string) $escaped);
+        $escaped = preg_replace('#\\\\\{([^}]+)\\\\}#', '[^/]+', $escaped ?? '');
+        if ($escaped === null) {
+            $escaped = '';
+        }
+        $escapedStr = (string) $escaped;
 
         // Handle multiple parameters and edge cases
         // Support for paths with dots, dashes, etc.
-        $escaped = str_replace(['\.', '\-'], ['.', '-'], $escaped);
+        $escaped = str_replace(['\.', '\-'], ['.', '-'], $escapedStr);
 
         // Match with case-insensitive option for better matching
         return (bool) preg_match('#^'.$escaped.'$#i', $path);

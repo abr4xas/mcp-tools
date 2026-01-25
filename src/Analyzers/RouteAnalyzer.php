@@ -9,6 +9,7 @@ use Abr4xas\McpTools\Services\AnalysisCacheService;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Str;
 use ReflectionMethod;
+use Throwable;
 
 class RouteAnalyzer
 {
@@ -25,6 +26,10 @@ class RouteAnalyzer
         $this->middlewareAnalyzer = $middlewareAnalyzer;
     }
 
+    /**
+     * @param  mixed  $action
+     * @return array<string, array{type: string, required: bool}>
+     */
     public function extractPathParams(string $uri, $action = null): array
     {
         $cacheKey = 'path_params:'.$uri.($action ? ':'.md5((string) $action) : '');
@@ -32,13 +37,15 @@ class RouteAnalyzer
             return $this->cacheService->get('route', $cacheKey);
         }
 
-        preg_match_all('/\{(\w+)\??\}/', $uri, $matches);
+        preg_match_all('/\{(\w+)(\??)\}/', $uri, $matches);
 
         $params = [];
-        foreach ($matches[1] as $paramName) {
+        foreach ($matches[1] as $index => $paramName) {
             $type = $this->detectParamType($paramName, $action);
+            $isOptional = isset($matches[2][$index]) && $matches[2][$index] === '?';
             $params[$paramName] = [
                 'type' => $type,
+                'required' => ! $isOptional,
             ];
         }
 
@@ -92,13 +99,8 @@ class RouteAnalyzer
                                     $type = 'integer';
                                 }
                             } else {
-                                // Type hint exists but not a model
-                                $type = match ($typeName) {
-                                    'int', 'integer' => 'integer',
-                                    'float', 'double' => 'number',
-                                    'bool', 'boolean' => 'boolean',
-                                    default => 'string',
-                                };
+                                // Type hint exists but not a model - default to string for unknown classes
+                                $type = 'string';
                             }
                         } else {
                             // Built-in type
@@ -142,6 +144,9 @@ class RouteAnalyzer
         return 'string';
     }
 
+    /**
+     * @return array{type: string, scheme?: string, provider?: string, in?: string, name?: string}
+     */
     public function determineAuth(Route $route): array
     {
         $routeName = $route->getName() ?? $route->uri();
@@ -162,8 +167,8 @@ class RouteAnalyzer
                     break;
                 }
 
-                // Laravel Passport
-                if (Str::contains($mw, 'auth:api') && class_exists('Laravel\Passport\Passport')) {
+                // Laravel Passport - check for Passport-specific middleware patterns
+                if (Str::contains($mw, 'passport') && class_exists('Laravel\Passport\Passport')) {
                     $auth = ['type' => 'oauth2', 'scheme' => 'Bearer', 'provider' => 'passport'];
 
                     break;
@@ -216,7 +221,7 @@ class RouteAnalyzer
 
                     break;
                 }
-                if (Str::contains($middlewareClass, 'ApiKey') || Str::contains($middlewareClass, 'ApiKey')) {
+                if (Str::contains($middlewareClass, 'ApiKey')) {
                     $auth = ['type' => 'apiKey', 'in' => 'header', 'name' => 'X-API-Key'];
 
                     break;
@@ -246,6 +251,9 @@ class RouteAnalyzer
         return null;
     }
 
+    /**
+     * @return array{max_attempts?: int, decay_minutes?: int}|null
+     */
     public function extractRateLimit(Route $route): ?array
     {
         $middlewares = $route->gatherMiddleware();
@@ -351,6 +359,9 @@ class RouteAnalyzer
         return null;
     }
 
+    /**
+     * @return array<int, array{name: string, required: bool, description: string}>
+     */
     public function extractCustomHeaders(Route $route): array
     {
         $headers = [];
@@ -412,6 +423,8 @@ class RouteAnalyzer
 
     /**
      * Validate route action format
+     *
+     * @param  mixed  $action
      *
      * @throws RouteAnalysisException
      */

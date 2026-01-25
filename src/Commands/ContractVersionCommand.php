@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\File;
 
 class ContractVersionCommand extends Command
 {
-    protected $signature = 'api:contract:versions {action=list : Action to perform (list, restore)} {--version= : Version to restore}';
+    protected $signature = 'api:contract:versions {action=list : Action to perform (list, restore)} {--file= : Version file to restore}';
 
     protected $description = 'Manage API contract versions with history';
 
@@ -20,7 +20,7 @@ class ContractVersionCommand extends Command
         return match ($action) {
             'list' => $this->listVersions(),
             'restore' => $this->restoreVersion(),
-            default => $this->error("Unknown action: {$action}") ?? self::FAILURE,
+            default => $this->handleUnknownAction($action),
         };
     }
 
@@ -72,19 +72,19 @@ class ContractVersionCommand extends Command
 
     protected function restoreVersion(): int
     {
-        $version = $this->option('version');
+        $versionFile = $this->option('file');
 
-        if (! $version) {
-            $this->error('Version is required. Use --version option.');
+        if (! $versionFile) {
+            $this->error('Version file is required. Use --file option.');
 
             return self::FAILURE;
         }
 
         $versionsPath = storage_path('api-contracts/versions');
-        $versionFile = "{$versionsPath}/{$version}";
+        $fullPath = "{$versionsPath}/{$versionFile}";
 
-        if (! File::exists($versionFile)) {
-            $this->error("Version file not found: {$version}");
+        if (! File::exists($fullPath)) {
+            $this->error("Version file not found: {$versionFile}");
 
             return self::FAILURE;
         }
@@ -98,8 +98,8 @@ class ContractVersionCommand extends Command
         }
 
         // Restore version
-        File::copy($versionFile, $currentContract);
-        $this->info("Contract restored from version: {$version}");
+        File::copy($fullPath, $currentContract);
+        $this->info("Contract restored from version: {$versionFile}");
 
         return self::SUCCESS;
     }
@@ -119,9 +119,16 @@ class ContractVersionCommand extends Command
         $units = ['B', 'KB', 'MB', 'GB'];
         $bytes = max($bytes, 0);
         $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-        $pow = min($pow, count($units) - 1);
+        $pow = min((int) $pow, count($units) - 1);
         $bytes /= (1 << (10 * $pow));
 
         return round($bytes, 2).' '.$units[$pow];
+    }
+
+    protected function handleUnknownAction(string $action): int
+    {
+        $this->error("Unknown action: {$action}");
+
+        return self::FAILURE;
     }
 }

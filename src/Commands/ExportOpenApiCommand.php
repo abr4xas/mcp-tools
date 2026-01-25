@@ -49,6 +49,11 @@ class ExportOpenApiCommand extends Command
         }
 
         $output = json_encode($openApi, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($output === false) {
+            $this->error('Failed to encode OpenAPI contract to JSON');
+
+            return self::FAILURE;
+        }
 
         // Ensure output directory exists
         $outputDir = dirname($outputPath);
@@ -56,7 +61,7 @@ class ExportOpenApiCommand extends Command
             File::makeDirectory($outputDir, 0755, true);
         }
 
-        File::put($outputPath, $output);
+        File::put($outputPath, (string) $output);
 
         $this->info("OpenAPI contract exported to: {$outputPath}");
 
@@ -66,7 +71,7 @@ class ExportOpenApiCommand extends Command
     /**
      * Convert internal contract format to OpenAPI 3.0
      *
-     * @param  array<string, array>  $contract
+     * @param  array<string, array<string, mixed>>  $contract
      * @return array<string, mixed>
      */
     protected function convertToOpenApi(array $contract): array
@@ -204,12 +209,15 @@ class ExportOpenApiCommand extends Command
      * @param  array<string, mixed>  $routeData
      * @return array<string, mixed>
      */
+    /**
+     * @param  array<string, mixed>  $routeData
+     * @return array<string, array<string, mixed>>
+     */
     protected function convertResponseSchema(array $routeData): array
     {
-        $responses = [
-            '200' => [
-                'description' => 'Successful response',
-            ],
+        $responses = [];
+        $responses['200'] = [
+            'description' => 'Successful response',
         ];
 
         if (isset($routeData['response_schema']) && ! isset($routeData['response_schema']['undocumented'])) {
@@ -305,7 +313,7 @@ class ExportOpenApiCommand extends Command
      * Convert auth to OpenAPI security
      *
      * @param  array<string, mixed>  $auth
-     * @return array<int, array<string, array>>
+     * @return array<int, array<string, array<int, string>>>
      */
     protected function convertAuthToSecurity(array $auth): array
     {
@@ -323,8 +331,8 @@ class ExportOpenApiCommand extends Command
     /**
      * Extract security schemes from contract
      *
-     * @param  array<string, array>  $contract
-     * @return array<string, mixed>
+     * @param  array<string, array<string, mixed>>  $contract
+     * @return array<string, array<string, mixed>>
      */
     protected function extractSecuritySchemes(array $contract): array
     {

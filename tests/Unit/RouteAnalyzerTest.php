@@ -1,100 +1,89 @@
 <?php
 
-declare(strict_types=1);
-
-namespace Tests\Unit;
-
 use Abr4xas\McpTools\Analyzers\MiddlewareAnalyzer;
 use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
 use Abr4xas\McpTools\Services\AnalysisCacheService;
-use Abr4xas\McpTools\Tests\TestCase;
 use Illuminate\Support\Facades\Route;
 
-class RouteAnalyzerTest extends TestCase
-{
-    protected RouteAnalyzer $analyzer;
+beforeEach(function () {
+    $cacheService = new AnalysisCacheService;
+    $middlewareAnalyzer = new MiddlewareAnalyzer;
+    $this->analyzer = new RouteAnalyzer($cacheService, $middlewareAnalyzer);
+});
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $cacheService = new AnalysisCacheService;
-        $middlewareAnalyzer = new MiddlewareAnalyzer;
-        $this->analyzer = new RouteAnalyzer($cacheService, $middlewareAnalyzer);
-    }
+it('extracts path params from route', function () {
+    Route::get('/api/users/{id}', function () {
+        return response()->json([]);
+    })->name('users.show');
 
-    public function test_extract_path_params_from_route(): void
-    {
-        Route::get('/api/users/{id}', function () {
-            return response()->json([]);
-        })->name('users.show');
+    // Force route compilation
+    Route::getRoutes()->refreshNameLookups();
+    Route::getRoutes()->refreshActionLookups();
 
-        // Refresh routes
-        $routes = Route::getRoutes();
-        $route = $routes->getByName('users.show');
-        
-        if ($route === null) {
-            $this->markTestSkipped('Route not found - may need route refresh');
-        }
+    $routes = Route::getRoutes();
+    $route = $routes->getByName('users.show');
 
-        $this->assertNotNull($route);
-        $params = $this->analyzer->extractPathParams($route->uri(), 'GET');
-        $this->assertIsArray($params);
-        $this->assertArrayHasKey('id', $params);
-    }
+    expect($route)->not->toBeNull('Route should be registered and findable');
+    $params = $this->analyzer->extractPathParams($route->uri(), 'GET');
+    expect($params)->toBeArray()
+        ->and($params)->toHaveKey('id');
+});
 
-    public function test_determine_auth_type(): void
-    {
-        Route::middleware('auth:sanctum')->get('/api/protected', function () {
-            return response()->json([]);
-        })->name('protected');
+it('determines auth type', function () {
+    Route::middleware('auth:sanctum')->get('/api/protected', function () {
+        return response()->json([]);
+    })->name('protected');
 
-        $routes = Route::getRoutes();
-        $route = $routes->getByName('protected');
-        
-        if ($route === null) {
-            $this->markTestSkipped('Route not found - may need route refresh');
-        }
+    // Force route compilation
+    Route::getRoutes()->refreshNameLookups();
+    Route::getRoutes()->refreshActionLookups();
 
-        $this->assertNotNull($route);
-        $auth = $this->analyzer->determineAuth($route);
-        $this->assertIsArray($auth);
-        $this->assertArrayHasKey('type', $auth);
-    }
+    $routes = Route::getRoutes();
+    $route = $routes->getByName('protected');
 
-    public function test_extract_rate_limit(): void
-    {
-        Route::middleware('throttle:60,1')->get('/api/limited', function () {
-            return response()->json([]);
-        })->name('limited');
+    expect($route)->not->toBeNull('Route should be registered and findable');
+    $auth = $this->analyzer->determineAuth($route);
+    expect($auth)->toBeArray()
+        ->and($auth)->toHaveKey('type');
+});
 
-        $routes = Route::getRoutes();
-        $route = $routes->getByName('limited');
-        
-        if ($route === null) {
-            $this->markTestSkipped('Route not found - may need route refresh');
-        }
+it('extracts rate limit', function () {
+    Route::middleware('throttle:60,1')->get('/api/limited', function () {
+        return response()->json([]);
+    })->name('limited');
 
-        $this->assertNotNull($route);
-        $rateLimit = $this->analyzer->extractRateLimit($route);
-        $this->assertIsArray($rateLimit);
-    }
+    // Force route compilation
+    Route::getRoutes()->refreshNameLookups();
+    Route::getRoutes()->refreshActionLookups();
 
-    public function test_extract_api_version(): void
-    {
-        Route::prefix('api/v1')->get('/test', function () {
-            return response()->json([]);
-        })->name('v1.test');
+    $routes = Route::getRoutes();
+    $route = $routes->getByName('limited');
 
-        $routes = Route::getRoutes();
-        $route = $routes->getByName('v1.test');
-        
-        if ($route === null) {
-            $this->markTestSkipped('Route not found - may need route refresh');
-        }
+    expect($route)->not->toBeNull('Route should be registered and findable');
+    $rateLimit = $this->analyzer->extractRateLimit($route);
+    expect($rateLimit)->toBeArray();
+});
 
-        $this->assertNotNull($route);
-        $version = $this->analyzer->extractApiVersion($route);
-        $this->assertNotNull($version);
-        $this->assertEquals('v1', $version);
-    }
-}
+it('extracts api version', function () {
+    Route::prefix('api/v1')->get('/test', function () {
+        return response()->json([]);
+    })->name('v1.test');
+
+    // Force route compilation
+    Route::getRoutes()->refreshNameLookups();
+    Route::getRoutes()->refreshActionLookups();
+
+    $routes = Route::getRoutes();
+    $route = $routes->getByName('v1.test');
+
+    expect($route)->not->toBeNull('Route should be registered and findable');
+
+    // Get the full URI path (with prefix)
+    $uri = $route->uri();
+    // Normalize to include leading slash if needed
+    $normalizedUri = '/'.ltrim($uri, '/');
+
+    $version = $this->analyzer->extractApiVersion($normalizedUri);
+    expect($version)->not->toBeNull("Version should be extracted from URI: {$normalizedUri}")
+        ->and($version)->toBe('v1');
+});

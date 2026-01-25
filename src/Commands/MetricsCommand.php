@@ -60,7 +60,7 @@ class MetricsCommand extends Command
     /**
      * Calculate metrics from contract
      *
-     * @param  array<string, array>  $contract
+     * @param  array<string, array<string, mixed>>  $contract
      * @return array<string, mixed>
      */
     protected function calculateMetrics(array $contract): array
@@ -109,7 +109,7 @@ class MetricsCommand extends Command
                 }
 
                 // Count deprecated
-                if (isset($routeData['deprecated']) && $routeData['deprecated'] !== null) {
+                if (isset($routeData['deprecated']) && is_array($routeData['deprecated'])) {
                     $deprecatedRoutes++;
                 }
             }

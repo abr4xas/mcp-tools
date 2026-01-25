@@ -136,6 +136,7 @@ class MiddlewareAnalyzer
     /**
      * Extract required headers from middleware
      *
+     * @param  array<int, string|object>  $middlewares
      * @return array<int, array{name: string, required: bool, description: string}>
      */
     public function extractRequiredHeaders(array $middlewares): array
@@ -144,7 +145,7 @@ class MiddlewareAnalyzer
 
         foreach ($middlewares as $middleware) {
             $name = is_string($middleware) ? $middleware : get_class($middleware);
-            $nameLower = mb_strtolower($name);
+            $nameLower = mb_strtolower((string) $name);
 
             // CORS headers
             if (Str::contains($nameLower, 'cors')) {
@@ -185,6 +186,7 @@ class MiddlewareAnalyzer
     /**
      * Detect content negotiation support from middleware
      *
+     * @param  array<int, string|object>  $middlewares
      * @return array<string, array{format: string, description: string}>
      */
     public function detectContentNegotiation(array $middlewares): array

@@ -32,6 +32,8 @@ class AstCacheService
 
     /**
      * Store AST in cache
+     *
+     * @param  mixed  $ast
      */
     public function put(string $filePath, $ast): void
     {

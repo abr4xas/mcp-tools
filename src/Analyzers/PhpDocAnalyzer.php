@@ -44,7 +44,7 @@ class PhpDocAnalyzer
             $line = trim($line);
             // Remove comment markers
             $line = preg_replace('/^\/\*\*|\*\/$|\*\/?/', '', $line);
-            $line = trim($line);
+            $line = trim((string) $line);
 
             if (empty($line)) {
                 continue;
@@ -53,9 +53,10 @@ class PhpDocAnalyzer
             // Check for @param tag
             if (preg_match('/@param\s+(\S+)\s+\$(\w+)(?:\s+(.+))?/', $line, $matches)) {
                 $inDescription = false;
-                $type = $matches[1] ?? null;
-                $name = $matches[2] ?? null;
-                $paramDescription = $matches[3] ?? null;
+                // preg_match with capturing groups always populates $matches[1] and $matches[2] on success
+                $type = (string) $matches[1];
+                $name = (string) $matches[2];
+                $paramDescription = isset($matches[3]) ? (string) $matches[3] : null;
 
                 if ($name) {
                     $params[$name] = [
@@ -70,8 +71,9 @@ class PhpDocAnalyzer
             // Check for @return tag
             if (preg_match('/@return\s+(\S+)(?:\s+(.+))?/', $line, $matches)) {
                 $inDescription = false;
-                $returnType = $matches[1] ?? null;
-                $returnDescription = $matches[2] ?? null;
+                // preg_match with capturing groups always populates $matches[1] on success
+                $returnType = (string) $matches[1];
+                $returnDescription = isset($matches[2]) ? (string) $matches[2] : null;
 
                 $return = [
                     'type' => $returnType,
@@ -84,7 +86,7 @@ class PhpDocAnalyzer
             // Check for @description tag
             if (preg_match('/@description\s+(.+)/', $line, $matches)) {
                 $inDescription = false;
-                $description = [trim($matches[1])];
+                $description = [trim((string) $matches[1])];
 
                 continue;
             }

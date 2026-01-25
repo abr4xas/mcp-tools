@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\File;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
+use Throwable;
 
 class ListApiRoutes extends Tool
 {
@@ -16,7 +17,7 @@ class ListApiRoutes extends Tool
 
     protected string $description = 'List all available API routes. Can filter by method, version, or search term.';
 
-    /** @var array<string, array> */
+    /** @var array<string, array<string, mixed>> */
     protected static array $contractCache = [];
 
     public function handle(Request $request): Response
@@ -40,7 +41,7 @@ class ListApiRoutes extends Tool
 
         $contract = $this->loadContract();
         if ($contract === null) {
-            return Response::text("Error: Contract not found. Run 'php artisan api:contract:generate'.");
+            return Response::text('Error: Contract not found. Run \'php artisan api:contract:generate\'.');
         }
 
         $routes = [];
@@ -113,12 +114,14 @@ class ListApiRoutes extends Tool
         if ($groupBy) {
             $grouped = $this->groupRoutes($routes, $groupBy);
 
-            return Response::text(json_encode([
+            $json = json_encode([
                 'total' => count($routes),
                 'limit' => $limit,
                 'grouped_by' => $groupBy,
                 'groups' => $grouped,
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+            return Response::text($json === false ? '{}' : $json);
         }
 
         $totalRoutes = count($routes);
@@ -159,7 +162,7 @@ class ListApiRoutes extends Tool
         // Add statistics
         $response['statistics'] = $this->calculateStatistics($routes);
 
-        return Response::text(json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        return Response::text((string) json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     public function schema(JsonSchema $schema): array
@@ -302,6 +305,8 @@ class ListApiRoutes extends Tool
 
     /**
      * Extract resource name from route data
+     *
+     * @param  array<string, mixed>  $routeData
      */
     protected function extractResourceFromRouteData(array $routeData): ?string
     {
@@ -371,7 +376,7 @@ class ListApiRoutes extends Tool
     /**
      * Load contract from cache or file system
      *
-     * @return array<string, array>|null
+     * @return array<string, array<string, mixed>>|null
      */
     protected function loadContract(): ?array
     {
@@ -401,6 +406,8 @@ class ListApiRoutes extends Tool
 
     /**
      * Check if route matches search term with fuzzy matching and relevance
+     *
+     * @param  array<string, mixed>  $routeData
      */
     protected function matchesSearch(string $path, array $routeData, string $search): bool
     {
@@ -468,6 +475,9 @@ class ListApiRoutes extends Tool
     {
         // Simple parsing: split by AND/OR (case insensitive)
         $terms = preg_split('/\s+(?:and|or)\s+/i', $search);
+        if ($terms === false) {
+            return [];
+        }
 
         return array_filter(array_map('trim', $terms));
     }
@@ -475,6 +485,7 @@ class ListApiRoutes extends Tool
     /**
      * Match search with AND/OR operators
      *
+     * @param  array<string, mixed>  $routeData
      * @param  array<int, string>  $searchTerms
      */
     protected function matchesSearchWithOperators(string $path, array $routeData, array $searchTerms): bool
@@ -549,7 +560,7 @@ class ListApiRoutes extends Tool
 
         $contract = $this->loadContract();
         if ($contract === null) {
-            return Response::text("Error: Contract not found. Run 'php artisan api:contract:generate'.");
+            return Response::text('Error: Contract not found. Run \'php artisan api:contract:generate\'.');
         }
 
         $results = [];
@@ -608,10 +619,12 @@ class ListApiRoutes extends Tool
             ];
         }
 
-        return Response::text(json_encode([
+        $json = json_encode([
             'batch_results' => $results,
             'total_operations' => count($results),
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        return Response::text($json === false ? '{}' : $json);
     }
 
     /**

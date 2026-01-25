@@ -22,46 +22,57 @@ class CompareApiContracts extends Tool
         $contract2Path = $request->get('contract2_path');
 
         if (! $contract1Path || ! is_string($contract1Path)) {
-            return Response::text(json_encode([
+            $json = json_encode([
                 'error' => true,
                 'message' => 'contract1_path parameter is required',
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+            return Response::text($json === false ? '{"error":true}' : $json);
         }
 
         if (! $contract2Path || ! is_string($contract2Path)) {
-            return Response::text(json_encode([
+            $json = json_encode([
                 'error' => true,
                 'message' => 'contract2_path parameter is required',
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+            return Response::text($json === false ? '{"error":true}' : $json);
         }
 
         if (! File::exists($contract1Path)) {
-            return Response::text(json_encode([
+            $json = json_encode([
                 'error' => true,
                 'message' => "Contract file not found: {$contract1Path}",
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+            return Response::text($json === false ? '{"error":true}' : $json);
         }
 
         if (! File::exists($contract2Path)) {
-            return Response::text(json_encode([
+            $json = json_encode([
                 'error' => true,
                 'message' => "Contract file not found: {$contract2Path}",
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+            return Response::text($json === false ? '{"error":true}' : $json);
         }
 
         $contract1 = json_decode(File::get($contract1Path), true);
         $contract2 = json_decode(File::get($contract2Path), true);
 
         if (! is_array($contract1) || ! is_array($contract2)) {
-            return Response::text(json_encode([
+            $json = json_encode([
                 'error' => true,
                 'message' => 'Invalid contract file format. Expected JSON object.',
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+            return Response::text($json === false ? '{"error":true}' : $json);
         }
 
         $comparison = $this->compareContracts($contract1, $contract2);
+        $json = json_encode($comparison, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
-        return Response::text(json_encode($comparison, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        return Response::text($json === false ? '{}' : $json);
     }
 
     public function schema(JsonSchema $schema): array
@@ -79,9 +90,9 @@ class CompareApiContracts extends Tool
     /**
      * Compare two contracts and detect differences
      *
-     * @param  array<string, array>  $contract1
-     * @param  array<string, array>  $contract2
-     * @return array{summary: array<string, int>, changes: array<string, mixed>}
+     * @param  array<string, array<string, mixed>>  $contract1
+     * @param  array<string, array<string, mixed>>  $contract2
+     * @return array{summary: array<string, int>, changes: list<array<string, mixed>>}
      */
     protected function compareContracts(array $contract1, array $contract2): array
     {
@@ -260,6 +271,9 @@ class CompareApiContracts extends Tool
     protected function schemasDiffer(array $schema1, array $schema2): bool
     {
         // Simple comparison - can be enhanced with deep diff
-        return json_encode($schema1, JSON_SORT_KEYS) !== json_encode($schema2, JSON_SORT_KEYS);
+        $json1 = json_encode($schema1, JSON_THROW_ON_ERROR | 64); // JSON_SORT_KEYS = 64
+        $json2 = json_encode($schema2, JSON_THROW_ON_ERROR | 64); // JSON_SORT_KEYS = 64
+
+        return $json1 !== $json2;
     }
 }

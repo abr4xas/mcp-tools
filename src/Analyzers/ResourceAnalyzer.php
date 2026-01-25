@@ -20,6 +20,7 @@ class ResourceAnalyzer
 
     protected ExampleGenerator $exampleGenerator;
 
+    /** @var array<string, string> */
     protected array $availableResources = [];
 
     public function __construct(AnalysisCacheService $cacheService, ExampleGenerator $exampleGenerator)
@@ -82,12 +83,22 @@ class ResourceAnalyzer
      *
      * @throws ResourceAnalysisException
      */
+    /**
+     * @return array<string, mixed>
+     */
     public function simulateResourceOutput(string $resourceClass): array
     {
         $cacheKey = $resourceClass;
 
         // Check cache with file modification time validation and hash-based cache key
         try {
+            if (! class_exists($resourceClass)) {
+                $result = ['undocumented' => true];
+                $this->cacheService->put('resource', $cacheKey, $result);
+
+                return $result;
+            }
+            /** @var class-string $resourceClass */
             $reflection = new ReflectionClass($resourceClass);
             $filePath = $reflection->getFileName();
             if ($filePath) {
@@ -173,6 +184,7 @@ class ResourceAnalyzer
 
                 // toResponse(request())->getData(true) is safer for Collections usually
                 try {
+                    /** @var ResourceCollection $resource */
                     $resp = $resource->toResponse(request())->getData(true); // returns array with meta/links usually
                 } catch (Throwable $e) {
                     throw ResourceAnalysisException::resourceResolutionFailed($resourceClass, $e->getMessage(), $e);
@@ -211,6 +223,7 @@ class ResourceAnalyzer
             }
 
             try {
+                /** @var \Illuminate\Http\Resources\Json\JsonResource $resource */
                 $data = $resource->resolve(request());
             } catch (Throwable $e) {
                 throw ResourceAnalysisException::resourceResolutionFailed($resourceClass, $e->getMessage(), $e);
@@ -276,7 +289,7 @@ class ResourceAnalyzer
     /**
      * Get class name from file
      */
-    protected function getClassNameFromFile($fileItem): string
+    protected function getClassNameFromFile(\SplFileInfo $fileItem): string
     {
         $path = $fileItem->getPath();
         $base = app_path('Http/Resources');
@@ -286,7 +299,10 @@ class ResourceAnalyzer
             $namespace .= '\\'.str_replace(DIRECTORY_SEPARATOR, '\\', $relative);
         }
 
-        return $namespace.'\\'.$fileItem->getFilenameWithoutExtension();
+        $filename = $fileItem->getFilename();
+        $filenameWithoutExt = pathinfo($filename, PATHINFO_FILENAME);
+
+        return $namespace.'\\'.$filenameWithoutExt;
     }
 
     /**
@@ -297,6 +313,7 @@ class ResourceAnalyzer
     protected function detectResourceInheritance(string $resourceClass): ?array
     {
         try {
+            /** @var class-string $resourceClass */
             $reflection = new ReflectionClass($resourceClass);
             $parent = $reflection->getParentClass();
 
@@ -335,8 +352,16 @@ class ResourceAnalyzer
 
         // Analyze resource class for relationship methods
         try {
+            if (! class_exists($resourceClass)) {
+                return [];
+            }
+            /** @var class-string $resourceClass */
             $reflection = new ReflectionClass($resourceClass);
-            $content = file_get_contents($reflection->getFileName());
+            $fileName = $reflection->getFileName();
+            if ($fileName === false || ! is_string($fileName)) {
+                return [];
+            }
+            $content = file_get_contents($fileName);
             if ($content !== false) {
                 // Look for whenLoaded, when, etc. patterns
                 if (preg_match_all('/whenLoaded\([\'"](\w+)[\'"]/', $content, $matches)) {
@@ -439,8 +464,16 @@ class ResourceAnalyzer
 
         // Try to find in use statements of context class
         try {
+            if (! class_exists($contextClass)) {
+                return null;
+            }
+            /** @var class-string $contextClass */
             $reflection = new ReflectionClass($contextClass);
-            $content = file_get_contents($reflection->getFileName());
+            $fileName = $reflection->getFileName();
+            if ($fileName === false) {
+                return null;
+            }
+            $content = file_get_contents($fileName);
             if ($content !== false && preg_match('/use\s+([^;]+'.preg_quote($shortName, '/').')\s*;/', $content, $matches)) {
                 $candidates[] = trim($matches[1]);
             }
@@ -458,14 +491,56 @@ class ResourceAnalyzer
     }
 
     /**
+     * Detect model class from resource name
+     */
+    protected function detectModelClass(string $modelName, string $resourceClass): ?string
+    {
+        $candidates = [
+            "App\\Models\\{$modelName}",
+            'App\\Models\\'.ucfirst($modelName),
+            "App\\{$modelName}",
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (class_exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Create model instance without factory
+     *
+     * @param  class-string  $modelClass
+     */
+    protected function createModelWithoutFactory(string $modelClass): object
+    {
+        try {
+            return new $modelClass;
+        } catch (Throwable $e) {
+            throw ResourceAnalysisException::factoryFailed($modelClass, $modelClass, $e->getMessage(), $e);
+        }
+    }
+
+    /**
      * Store result in cache with file modification time and hash
+     *
+     * @param  array<string, mixed>  $result
      */
     protected function storeInCache(string $resourceClass, string $cacheKey, array $result): void
     {
         try {
+            if (! class_exists($resourceClass)) {
+                $this->cacheService->put('resource', $cacheKey, $result);
+
+                return;
+            }
+            /** @var class-string $resourceClass */
             $reflection = new ReflectionClass($resourceClass);
             $filePath = $reflection->getFileName();
-            if ($filePath) {
+            if ($filePath && is_string($filePath)) {
                 // Store with hash-based key for faster lookup
                 $fileHash = md5_file($filePath);
                 $hashCacheKey = $cacheKey.':hash:'.$fileHash;

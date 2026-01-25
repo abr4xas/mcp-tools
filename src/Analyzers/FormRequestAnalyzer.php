@@ -25,7 +25,7 @@ class FormRequestAnalyzer
     /**
      * Extract request schema from FormRequest
      *
-     * @return array{location: string, properties: array}
+     * @return array{location: string, properties: array<string, mixed>}
      *
      * @throws FormRequestAnalysisException
      */
@@ -35,6 +35,9 @@ class FormRequestAnalyzer
 
         // Check cache with file modification time validation
         try {
+            if (! class_exists($formRequestClass)) {
+                throw FormRequestAnalysisException::classNotFound($formRequestClass);
+            }
             $reflection = new ReflectionClass($formRequestClass);
             $filePath = $reflection->getFileName();
             if ($filePath && $this->cacheService->isValidForFile('form_request', $cacheKey, $filePath)) {
@@ -184,8 +187,8 @@ class FormRequestAnalyzer
         if ($docComment !== false) {
             if (preg_match_all('/@param\s+(\S+)\s+\$(\w+)(?:\s+(.+))?/', $docComment, $matches, PREG_SET_ORDER)) {
                 foreach ($matches as $match) {
-                    $type = $match[1] ?? 'string';
-                    $name = $match[2] ?? '';
+                    $type = $match[1];
+                    $name = $match[2];
                     $description = $match[3] ?? null;
 
                     if ($name) {
@@ -301,21 +304,25 @@ class FormRequestAnalyzer
                     // required_if:other_field,value
                     $condition = substr($part, 12);
                     $parts = explode(',', $condition, 2);
+                    $field = $parts[0] ?? '';
+                    $value = $parts[1] ?? null;
                     $conditional = [
                         'type' => 'required_if',
-                        'field' => $parts[0] ?? '',
-                        'value' => $parts[1] ?? null,
-                        'message' => "Required if {$parts[0]} equals ".($parts[1] ?? 'specified value'),
+                        'field' => $field,
+                        'value' => $value,
+                        'message' => "Required if {$field} equals ".($value ?? 'specified value'),
                     ];
                 } elseif (Str::startsWith($part, 'required_unless:')) {
                     // required_unless:other_field,value
                     $condition = substr($part, 16);
                     $parts = explode(',', $condition, 2);
+                    $field = $parts[0] ?? '';
+                    $value = $parts[1] ?? null;
                     $conditional = [
                         'type' => 'required_unless',
-                        'field' => $parts[0] ?? '',
-                        'value' => $parts[1] ?? null,
-                        'message' => "Required unless {$parts[0]} equals ".($parts[1] ?? 'specified value'),
+                        'field' => $field,
+                        'value' => $value,
+                        'message' => "Required unless {$field} equals ".($value ?? 'specified value'),
                     ];
                 } elseif (Str::startsWith($part, 'required_with:')) {
                     $fields = substr($part, 14);
@@ -349,11 +356,9 @@ class FormRequestAnalyzer
                         $cases = $enumReflection->getCases();
                         $values = [];
                         foreach ($cases as $case) {
-                            if ($case->hasBackingType()) {
-                                $values[] = $case->getBackingValue();
-                            } else {
-                                $values[] = $case->getName();
-                            }
+                            // ReflectionEnumUnitCase doesn't have hasBackingType/getBackingValue in PHP 8.1+
+                            // Use getName() for all cases
+                            $values[] = $case->getName();
                         }
                         $constraints[] = 'enum_values: '.implode(',', $values);
                     } catch (\Throwable) {
@@ -384,8 +389,6 @@ class FormRequestAnalyzer
                     }
                 } elseif (Str::startsWith($part, 'min:')) {
                     $constraints[] = $part;
-                } elseif (Str::startsWith($part, 'max:')) {
-                    $constraints[] = $part;
                 } elseif (Str::startsWith($part, 'in:')) {
                     $constraints[] = 'enum: '.mb_substr($part, 3);
                 } elseif (Str::startsWith($part, 'regex:')) {
@@ -394,17 +397,13 @@ class FormRequestAnalyzer
                     $constraints[] = $part;
                 } elseif (Str::startsWith($part, 'unique:')) {
                     $constraints[] = $part;
-                } elseif (class_exists($part) && is_subclass_of($part, \Illuminate\Contracts\Validation\Rule::class)) {
-                    // Custom validation rule class
-                    $constraints[] = 'custom_rule:'.$part;
                 } elseif (Str::contains($part, '\\') && class_exists($part)) {
                     // Custom rule class (full namespace)
                     $constraints[] = 'custom_rule:'.$part;
                 } elseif (! in_array($part, ['required', 'integer', 'int', 'numeric', 'float', 'double', 'boolean', 'bool', 'array', 'string', 'email', 'url', 'uuid', 'date'], true)) {
                     // Unknown rule - likely custom
-                    if (! Str::startsWith($part, 'min:') && ! Str::startsWith($part, 'max:') && ! Str::startsWith($part, 'in:') && ! Str::startsWith($part, 'regex:') && ! Str::startsWith($part, 'exists:') && ! Str::startsWith($part, 'unique:')) {
-                        $constraints[] = 'custom:'.$part;
-                    }
+                    // Note: We already checked for min:, max:, in:, regex:, exists:, unique: above
+                    $constraints[] = 'custom:'.$part;
                 }
             }
 
@@ -559,9 +558,10 @@ class FormRequestAnalyzer
     protected function setNestedField(array &$schema, string $field, array $value): void
     {
         // Parse bracket notation: "items[*][name]" -> ["items", "*", "name"]
-        preg_match_all('/\[([^\]]+)\]/', $field, $matches);
+        $matchCount = preg_match_all('/\[([^\]]+)\]/', $field, $matches);
         $baseField = preg_replace('/\[.*$/', '', $field);
-        $path = $matches[1] ?? [];
+        // preg_match_all returns the number of matches, and $matches[1] is always an array when matches exist
+        $path = ($matchCount > 0) ? $matches[1] : [];
 
         if (empty($path)) {
             $schema[$baseField] = $value;

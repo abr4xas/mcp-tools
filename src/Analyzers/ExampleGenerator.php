@@ -162,8 +162,11 @@ class ExampleGenerator
             }
             if (str_starts_with($constraint, 'enum:')) {
                 $values = explode(',', substr($constraint, 5));
+                if (count($values) > 0) {
+                    return trim($values[0]);
+                }
 
-                return trim($values[0] ?? 'value');
+                return 'value';
             }
         }
 
