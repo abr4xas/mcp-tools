@@ -84,6 +84,7 @@ class GenerateApiContractCommand extends Command
                     $customHeaders = $this->routeAnalyzer->extractCustomHeaders($route);
                     $rateLimit = $this->routeAnalyzer->extractRateLimit($route);
                     $apiVersion = $this->routeAnalyzer->extractApiVersion($normalizedUri);
+                    $middleware = $this->routeAnalyzer->analyzeMiddleware($route);
 
                     $isQuery = in_array($method, $queryMethods, true);
                     $requestSchema = $this->extractRequestSchema($action, $isQuery);
@@ -102,6 +103,7 @@ class GenerateApiContractCommand extends Command
                         'custom_headers' => $customHeaders,
                         'rate_limit' => $rateLimit,
                         'api_version' => $apiVersion,
+                        'middleware' => $middleware,
                     ];
 
                     $this->output->writeln('Done.');

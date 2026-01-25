@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Analyzers;
 
+use Abr4xas\McpTools\Analyzers\MiddlewareAnalyzer;
 use Abr4xas\McpTools\Exceptions\RouteAnalysisException;
 use Abr4xas\McpTools\Services\AnalysisCacheService;
 use Illuminate\Routing\Route;
@@ -14,12 +15,15 @@ class RouteAnalyzer
 {
     protected AnalysisCacheService $cacheService;
 
+    protected MiddlewareAnalyzer $middlewareAnalyzer;
+
     /** @var array<string, ReflectionMethod> */
     protected array $reflectionCache = [];
 
-    public function __construct(AnalysisCacheService $cacheService)
+    public function __construct(AnalysisCacheService $cacheService, MiddlewareAnalyzer $middlewareAnalyzer)
     {
         $this->cacheService = $cacheService;
+        $this->middlewareAnalyzer = $middlewareAnalyzer;
     }
 
     public function extractPathParams(string $uri, $action = null): array
@@ -364,6 +368,16 @@ class RouteAnalyzer
         }
 
         return $headers;
+    }
+
+    /**
+     * Analyze all middleware applied to route
+     *
+     * @return array<int, array{name: string, category: string, parameters: array<string, mixed>}>
+     */
+    public function analyzeMiddleware(Route $route): array
+    {
+        return $this->middlewareAnalyzer->analyze($route);
     }
 
     /**

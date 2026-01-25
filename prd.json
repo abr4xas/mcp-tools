@@ -241,7 +241,7 @@
       "Verificar que los tipos aparecen correctamente en el contrato",
       "Probar con parámetros sin type hint y verificar fallback"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
