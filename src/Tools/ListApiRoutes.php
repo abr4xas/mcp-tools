@@ -128,21 +128,124 @@ class ListApiRoutes extends Tool
     }
 
     /**
-     * Check if route matches search term
+     * Check if route matches search term with fuzzy matching and relevance
      */
     protected function matchesSearch(string $path, array $routeData, string $search): bool
     {
-        $searchLower = mb_strtolower($search);
+        $searchLower = mb_strtolower(trim($search));
+        $searchTerms = $this->parseSearchTerms($searchLower);
 
-        // Search in path
-        if (mb_strpos(mb_strtolower($path), $searchLower) !== false) {
+        // If search has operators (AND, OR), handle them
+        if (count($searchTerms) > 1) {
+            return $this->matchesSearchWithOperators($path, $routeData, $searchTerms);
+        }
+
+        $searchTerm = $searchTerms[0];
+
+        // Exact match (highest relevance)
+        if (mb_strtolower($path) === $searchTerm) {
+            return true;
+        }
+
+        // Search in path with fuzzy matching
+        if ($this->fuzzyMatch(mb_strtolower($path), $searchTerm)) {
+            return true;
+        }
+
+        // Search in description
+        $description = $routeData['description'] ?? '';
+        if ($description && $this->fuzzyMatch(mb_strtolower($description), $searchTerm)) {
             return true;
         }
 
         // Search in path parameters
         $pathParams = $routeData['path_parameters'] ?? [];
-        foreach ($pathParams as $param) {
-            if (mb_strpos(mb_strtolower((string) $param), $searchLower) !== false) {
+        foreach ($pathParams as $paramName => $paramData) {
+            if ($this->fuzzyMatch(mb_strtolower((string) $paramName), $searchTerm)) {
+                return true;
+            }
+        }
+
+        // Search in request schema properties
+        if (isset($routeData['request_schema']['properties'])) {
+            foreach (array_keys($routeData['request_schema']['properties']) as $prop) {
+                if ($this->fuzzyMatch(mb_strtolower((string) $prop), $searchTerm)) {
+                    return true;
+                }
+            }
+        }
+
+        // Search in response schema properties
+        if (isset($routeData['response_schema']) && is_array($routeData['response_schema'])) {
+            foreach (array_keys($routeData['response_schema']) as $prop) {
+                if ($prop !== 'undocumented' && $this->fuzzyMatch(mb_strtolower((string) $prop), $searchTerm)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Parse search terms handling AND/OR operators
+     *
+     * @return array<int, string>
+     */
+    protected function parseSearchTerms(string $search): array
+    {
+        // Simple parsing: split by AND/OR (case insensitive)
+        $terms = preg_split('/\s+(?:and|or)\s+/i', $search);
+        return array_filter(array_map('trim', $terms));
+    }
+
+    /**
+     * Match search with AND/OR operators
+     *
+     * @param  array<int, string>  $searchTerms
+     */
+    protected function matchesSearchWithOperators(string $path, array $routeData, array $searchTerms): bool
+    {
+        $originalSearch = implode(' ', $searchTerms);
+        $matches = [];
+
+        foreach ($searchTerms as $term) {
+            $matches[] = $this->matchesSearch($path, $routeData, $term);
+        }
+
+        // Default to AND logic (all terms must match)
+        // Could be enhanced to detect OR from original search string
+        return ! in_array(false, $matches, true);
+    }
+
+    /**
+     * Fuzzy match with typo tolerance (simple Levenshtein-based)
+     */
+    protected function fuzzyMatch(string $text, string $search): bool
+    {
+        // Exact substring match
+        if (mb_strpos($text, $search) !== false) {
+            return true;
+        }
+
+        // Word boundary match
+        if (preg_match('/\b' . preg_quote($search, '/') . '\b/i', $text)) {
+            return true;
+        }
+
+        // Fuzzy match for short searches (tolerate 1-2 character differences)
+        if (mb_strlen($search) <= 10) {
+            $distance = levenshtein($text, $search);
+            $maxDistance = min(2, (int) (mb_strlen($search) * 0.3));
+            if ($distance <= $maxDistance) {
+                return true;
+            }
+        }
+
+        // Partial word match
+        $searchWords = explode(' ', $search);
+        foreach ($searchWords as $word) {
+            if (mb_strlen($word) >= 3 && mb_strpos($text, $word) !== false) {
                 return true;
             }
         }

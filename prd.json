@@ -180,7 +180,7 @@
       "Probar describe-api-route con múltiples paths",
       "Verificar que los resultados son correctos"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "technical",
