@@ -4,6 +4,7 @@ namespace Abr4xas\McpTools\Commands;
 
 use Abr4xas\McpTools\Analyzers\FormRequestAnalyzer;
 use Abr4xas\McpTools\Analyzers\PhpDocAnalyzer;
+use Abr4xas\McpTools\Analyzers\ResponseCodeAnalyzer;
 use Abr4xas\McpTools\Analyzers\ResourceAnalyzer;
 use Abr4xas\McpTools\Analyzers\RouteAnalyzer;
 use Abr4xas\McpTools\Services\AstCacheService;
@@ -176,6 +177,21 @@ class GenerateApiContractCommand extends Command
                     $description = is_array($descriptionData) ? ($descriptionData['description'] ?? null) : $descriptionData;
                     $deprecated = is_array($descriptionData) ? ($descriptionData['deprecated'] ?? null) : null;
 
+                    // Extract possible HTTP status codes
+                    $statusCodes = [];
+                    if (is_string($action) && str_contains($action, '@')) {
+                        [$controller, $controllerMethod] = explode('@', $action);
+                        try {
+                            $reflection = $this->routeAnalyzer->getReflectionMethod($controller, $controllerMethod, "{$controller}::{$controllerMethod}");
+                            $statusCodes = $this->responseCodeAnalyzer->analyze($reflection);
+                        } catch (\Throwable) {
+                            // Use default codes
+                            $statusCodes = [200 => 'OK', 400 => 'Bad Request', 404 => 'Not Found', 500 => 'Internal Server Error'];
+                        }
+                    } else {
+                        $statusCodes = [200 => 'OK', 400 => 'Bad Request', 404 => 'Not Found', 500 => 'Internal Server Error'];
+                    }
+
                     $contract[$normalizedUri][$method] = [
                         'description' => $description,
                         'deprecated' => $deprecated,
@@ -188,6 +204,7 @@ class GenerateApiContractCommand extends Command
                         'api_version' => $apiVersion,
                         'middleware' => $middleware,
                         'route_name' => $routeName,
+                        'status_codes' => $statusCodes,
                     ];
 
                     $progressBar->setMessage("Done: {$method} {$normalizedUri}");

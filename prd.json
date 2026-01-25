@@ -601,7 +601,7 @@
       "Verificar que los nombres aparecen en el contrato",
       "Probar búsqueda por nombre de ruta"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
