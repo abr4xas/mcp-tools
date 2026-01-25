@@ -117,19 +117,26 @@ class ResourceAnalyzer
         // PostCollection -> Post
         // PostResource -> Post
         $modelName = str_replace(['Resource', 'Overview', 'Collection'], '', $basics);
-        $modelClass = "App\\Models\\{$modelName}";
-
-        if (! class_exists($modelClass)) {
-            throw ResourceAnalysisException::modelNotFound($modelClass, $resourceClass);
+        
+        // Try multiple model detection strategies
+        $modelClass = $this->detectModelClass($modelName, $resourceClass);
+        
+        if (! $modelClass || ! class_exists($modelClass)) {
+            throw ResourceAnalysisException::modelNotFound($modelClass ?? "App\\Models\\{$modelName}", $resourceClass);
         }
 
         if (! method_exists($modelClass, 'factory')) {
-            throw ResourceAnalysisException::factoryNotAvailable($modelClass, $resourceClass);
+            // Try fallback: create model instance with minimal data
+            try {
+                $model = $this->createModelWithoutFactory($modelClass);
+            } catch (Throwable $e) {
+                throw ResourceAnalysisException::factoryNotAvailable($modelClass, $resourceClass);
+            }
+        } else {
+            $model = $modelClass::factory()->make();
         }
 
         try {
-            $model = $modelClass::factory()->make();
-
             // Ensure critical date fields are set to prevent accessor crashes (e.g. publish_date)
             $dateFields = ['publish_date', 'published_at', 'created_at', 'updated_at', 'deleted_at'];
             foreach ($dateFields as $dateField) {
@@ -163,6 +170,18 @@ class ResourceAnalyzer
                 // Generate examples from schema
                 if (! empty($result) && ! isset($result['undocumented'])) {
                     $result['example'] = $this->exampleGenerator->generateFromSchema($result);
+                }
+
+                // Detect pagination structure
+                if (isset($resp['data']) && isset($resp['links']) && isset($resp['meta'])) {
+                    $result['pagination'] = [
+                        'type' => 'paginated',
+                        'structure' => [
+                            'data' => 'array of items',
+                            'links' => 'pagination links',
+                            'meta' => 'pagination metadata',
+                        ],
+                    ];
                 }
 
                 $this->storeInCache($resourceClass, $cacheKey, $result);
@@ -254,6 +273,40 @@ class ResourceAnalyzer
         }
 
         return $namespace . '\\' . $fileItem->getFilenameWithoutExtension();
+    }
+
+    /**
+     * Detect if resource extends another resource
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function detectResourceInheritance(string $resourceClass): ?array
+    {
+        try {
+            $reflection = new ReflectionClass($resourceClass);
+            $parent = $reflection->getParentClass();
+            
+            if ($parent && str_contains($parent->getName(), 'Resource')) {
+                // Resource extends another resource
+                $parentClass = $parent->getName();
+                try {
+                    // Try to get parent resource schema
+                    $parentSchema = $this->simulateResourceOutput($parentClass);
+                    if (! isset($parentSchema['undocumented'])) {
+                        return [
+                            'parent_resource' => $parentClass,
+                            'inherited_fields' => $parentSchema,
+                        ];
+                    }
+                } catch (Throwable) {
+                    // Ignore errors
+                }
+            }
+        } catch (Throwable) {
+            // Ignore errors
+        }
+
+        return null;
     }
 
     /**
