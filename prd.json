@@ -90,7 +90,7 @@
       "Verificar que las descripciones aparecen en describe-api-route",
       "Probar con controladores sin PHPDoc y verificar fallback"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "functional",
