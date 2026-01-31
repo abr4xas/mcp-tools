@@ -4,50 +4,34 @@ declare(strict_types=1);
 
 namespace Abr4xas\McpTools\Tools;
 
-use Abr4xas\McpTools\Contracts\ContractLoaderInterface;
-use Abr4xas\McpTools\Services\ContractLoader;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\File;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 
-/**
- * Describe API Route Tool
- *
- * MCP tool that provides detailed information about a specific API route,
- * including authentication, schemas, and metadata.
- */
 class DescribeApiRoute extends Tool
 {
     protected string $description = 'Get the public API contract for a specific route and method.';
 
-    protected ContractLoaderInterface $contractLoader;
+    /** @var array<string, array<string, mixed>> */
+    protected static array $contractCache = [];
 
-    /**
-     * Create a new DescribeApiRoute instance.
-     *
-     * @param  ContractLoaderInterface|null  $contractLoader  Optional contract loader instance
-     */
-    public function __construct(?ContractLoaderInterface $contractLoader = null)
-    {
-        $this->contractLoader = $contractLoader ?? new ContractLoader;
-    }
-
-    /**
-     * Handle the MCP tool request.
-     *
-     * @param  Request  $request  The MCP request with path and method
-     * @return Response JSON response with route details or error message
-     */
     public function handle(Request $request): Response
     {
         $path = $request->get('path');
-        $method = mb_strtoupper((string) $request->get('method', 'GET'));
+        $method = $request->get('method', 'GET');
+
+        // Support batch operations: accept array of paths
+        if (is_array($path)) {
+            return $this->handleBatch($request, $path, $method);
+        }
 
         if (! $path || ! is_string($path)) {
             return Response::text("Error: 'path' parameter is required and must be a string.");
         }
+
+        $method = mb_strtoupper((string) $method);
 
         if (! in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], true)) {
             return Response::text("Error: Invalid HTTP method '{$method}'. Must be one of: GET, POST, PUT, PATCH, DELETE, OPTIONS.");
@@ -56,31 +40,72 @@ class DescribeApiRoute extends Tool
         // Normalize path: ensure leading slash
         $normalizedPath = '/'.mb_ltrim($path, '/');
 
-        $contract = $this->contractLoader->load();
+        $contract = $this->loadContract();
         if ($contract === null) {
-            $fullPath = $this->contractLoader->getContractPath();
+            $fullPath = storage_path('api-contracts/api.json');
             if (! File::exists($fullPath)) {
-                return Response::text("Error: Contract not found. Run 'php artisan api:generate-contract'.");
+                return Response::text("Error: Contract not found. Run 'php artisan api:contract:generate'.");
             }
 
-            return Response::text("Error: Contract file exists but has invalid structure. Please regenerate the contract with 'php artisan api:generate-contract'.");
+            return Response::text("Error: Contract file exists but has invalid structure. Please regenerate the contract with 'php artisan api:contract:generate'.");
         }
 
         $routeData = $this->findRouteData($contract, $normalizedPath, $method);
 
         if ($routeData === null) {
-            return Response::text(json_encode(['undocumented' => true], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            return Response::text((string) json_encode(['undocumented' => true], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         }
 
-        return Response::text(json_encode($routeData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        return Response::text((string) json_encode($routeData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     /**
-     * Define the JSON schema for tool arguments.
+     * Handle batch operations with multiple paths
      *
-     * @param  JsonSchema  $schema  The schema builder
-     * @return array<string, mixed> Schema definition
+     * @param  array<string>  $paths
+     * @param  string|array<string>  $method
      */
+    protected function handleBatch(Request $request, array $paths, $method): Response
+    {
+        $contract = $this->loadContract();
+        if ($contract === null) {
+            return Response::text("Error: Contract not found. Run 'php artisan api:contract:generate'.");
+        }
+
+        $results = [];
+        $methods = is_array($method) ? $method : [$method];
+
+        foreach ($paths as $path) {
+            if (! is_string($path)) {
+                continue;
+            }
+
+            $normalizedPath = '/'.mb_ltrim($path, '/');
+
+            foreach ($methods as $m) {
+                $m = mb_strtoupper((string) $m);
+                if (! in_array($m, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], true)) {
+                    continue;
+                }
+
+                $routeData = $this->findRouteData($contract, $normalizedPath, $m);
+
+                $results[] = [
+                    'path' => $normalizedPath,
+                    'method' => $m,
+                    'data' => $routeData ?? ['undocumented' => true],
+                ];
+            }
+        }
+
+        $json = json_encode([
+            'batch_results' => $results,
+            'total_operations' => count($results),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+        return Response::text($json === false ? '{}' : $json);
+    }
+
     public function schema(JsonSchema $schema): array
     {
         return [
@@ -95,15 +120,61 @@ class DescribeApiRoute extends Tool
     }
 
     /**
-     * Find route data in contract, trying exact match first, then pattern matching.
+     * Load contract from cache or file system
      *
-     * First attempts an exact path match, then tries pattern matching for
-     * dynamic routes with parameters.
+     * @return array<string, array<string, mixed>>|null
+     */
+    protected function loadContract(): ?array
+    {
+        $cacheKey = 'contract_api';
+
+        if (isset(self::$contractCache[$cacheKey])) {
+            return self::$contractCache[$cacheKey];
+        }
+
+        $fullPath = storage_path('api-contracts/api.json');
+
+        if (! File::exists($fullPath)) {
+            return null;
+        }
+
+        $content = File::get($fullPath);
+        $contract = json_decode($content, true);
+
+        if (! is_array($contract)) {
+            return null;
+        }
+
+        // Validate contract structure
+        foreach ($contract as $path => $methods) {
+            if (! is_array($methods)) {
+                return null;
+            }
+            foreach ($methods as $httpMethod => $routeData) {
+                if (! is_array($routeData)) {
+                    return null;
+                }
+                // Check if path_parameters exists and is array
+                if (isset($routeData['path_parameters']) && ! is_array($routeData['path_parameters'])) {
+                    return null;
+                }
+                // Check if auth field exists (required field)
+                if (! isset($routeData['auth'])) {
+                    return null;
+                }
+            }
+        }
+
+        self::$contractCache[$cacheKey] = $contract;
+
+        return $contract;
+    }
+
+    /**
+     * Find route data in contract, trying exact match first, then pattern matching
      *
-     * @param  array<string, array<string, array<string, mixed>>>  $contract  The loaded contract
-     * @param  string  $path  The route path to find
-     * @param  string  $method  The HTTP method
-     * @return array<string, mixed>|null Route data or null if not found
+     * @param  array<string, array<string, mixed>>  $contract
+     * @return array<string, mixed>|null
      */
     protected function findRouteData(array $contract, string $path, string $method): ?array
     {
@@ -139,22 +210,53 @@ class DescribeApiRoute extends Tool
      */
     protected function matchesRoutePattern(string $pattern, string $path): bool
     {
+        // Normalize paths
+        $pattern = '/'.trim($pattern, '/');
+        $path = '/'.trim($path, '/');
+
+        // Handle exact match first
+        if ($pattern === $path) {
+            return true;
+        }
+
         // Escape special regex characters except our placeholders
         $escaped = preg_quote($pattern, '#');
 
         // Replace {param?} with optional segment (?:/[^/]+)?
-        // We need to match \{param\?\} literal from preg_quote output.
-        // Regex needs to match literal \ then literal ? So \\ \? -> \\\?
-        // PHP string needs \\\\ \\? -> \\\\\\?
-        $escaped = preg_replace('#\\\\\{([^}]+)\\\\\\?\}#', '(?:/[^/]+)?', $escaped);
+        // Handle optional parameters with constraints: {param?} or {param:constraint?}
+        $escaped = preg_replace('#\\\\\{([^}:]+)(?::([^}]+))?\\\\\?\}#', '(?:/[^/]+)?', $escaped);
+
+        // Replace {param:constraint} with constrained segment
+        // e.g., {id:number} -> \d+ or {slug:alpha} -> [a-zA-Z]+
+        $escaped = preg_replace_callback(
+            '#\\\\\{([^}:]+):([^}]+)\\\\}#',
+            function ($matches) {
+                // preg_replace_callback always provides $matches[2] when pattern matches
+                $constraint = (string) $matches[2];
+
+                return match (strtolower($constraint)) {
+                    'number', 'int', 'integer' => '\d+',
+                    'alpha' => '[a-zA-Z]+',
+                    'alphanum', 'alphanumeric' => '[a-zA-Z0-9]+',
+                    'uuid' => '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+                    default => '[^/]+',
+                };
+            },
+            $escaped ?? ''
+        );
 
         // Replace {param} with required segment [^/]+
-        // Match \{param\} literal. Regex \\ \{ ... \\ \}
-        $escaped = preg_replace('#\\\\\{([^}]+)\\\\}#', '[^/]+', (string) $escaped);
+        $escaped = preg_replace('#\\\\\{([^}]+)\\\\}#', '[^/]+', $escaped ?? '');
+        if ($escaped === null) {
+            $escaped = '';
+        }
+        $escapedStr = (string) $escaped;
 
-        // Handle case where {param} might be at start or have no leading slash in pattern?
-        // Usually /api/v1/posts/{post} -> /api/v1/posts/[^/]+
+        // Handle multiple parameters and edge cases
+        // Support for paths with dots, dashes, etc.
+        $escaped = str_replace(['\.', '\-'], ['.', '-'], $escapedStr);
 
-        return (bool) preg_match('#^'.$escaped.'$#', $path);
+        // Match with case-insensitive option for better matching
+        return (bool) preg_match('#^'.$escaped.'$#i', $path);
     }
 }

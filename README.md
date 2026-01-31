@@ -1,33 +1,34 @@
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="art/banner-dark.png">
-    <img alt="Logo for essentials" src="art/banner-light.png">
-  </picture>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="art/banner-dark.png">
+  <img alt="Logo for essentials" src="art/banner-light.png">
+</picture>
 
-# MCP Tools for Laravel
+# MCP Tools
+
+A Laravel package for generating and managing API contracts with MCP (Model Context Protocol) integration.
 
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/abr4xas/mcp-tools.svg?style=flat-square)](https://packagist.org/packages/abr4xas/mcp-tools)
 [![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/abr4xas/mcp-tools/run-tests.yml?branch=master&label=tests&style=flat-square)](https://github.com/abr4xas/mcp-tools/actions?query=workflow%3Arun-tests+branch%3Amaster)
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/abr4xas/mcp-tools/fix-php-code-style-issues.yml?branch=master&label=code%20style&style=flat-square)](https://github.com/abr4xas/mcp-tools/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amaster)
 [![Total Downloads](https://img.shields.io/packagist/dt/abr4xas/mcp-tools.svg?style=flat-square)](https://packagist.org/packages/abr4xas/mcp-tools)
 
-A growing collection of Model Context Protocol (MCP) tools designed to enhance Laravel development with AI assistance. This package provides ready-to-use MCP tools that integrate seamlessly with your Laravel MCP server.
-
 > [!IMPORTANT]
 > This package provides MCP tools that must be registered in your project's MCP server. It does not create or run an MCP server itself - you need to have [Laravel MCP](https://github.com/laravel/mcp) configured in your project.
 
-## What's Included
+## Features
 
-Currently, this package focuses on **API development tools**, with more tools planned for future releases:
+- **Automatic API Contract Generation**: Generate comprehensive API contracts from your Laravel routes
+- **MCP Tools Integration**: List and describe API routes through MCP tools
+- **Advanced Analysis**: Deep analysis of routes, FormRequests, Resources, and middleware
+- **OpenAPI Export**: Export contracts to OpenAPI 3.0 format
+- **Caching**: Intelligent caching for improved performance
+- **Validation**: JSON Schema validation for generated contracts
 
-### API Tools
+## Requirements
 
--   **API Contract Generation**: Automatically scan Laravel routes and generate comprehensive API documentation
--   **Route Discovery**: List and filter API routes by method, version, and search terms
--   **Route Description**: Get detailed endpoint information including auth, parameters, and schemas
-
-### Coming Soon
-
-More MCP tools will be added to assist with various aspects of Laravel development.
+- PHP 8.4+
+- Laravel 11.x or 12.x
+- [Laravel MCP](https://github.com/laravel/mcp) ^0.5.1
 
 ## Installation
 
@@ -41,59 +42,101 @@ The package will automatically register its service provider. However, the MCP t
 
 ## Usage
 
-### API Contract Generation
+### Generate API Contract
 
 Generate a comprehensive API contract from your Laravel routes:
 
 ```bash
-php artisan api:generate-contract
+php artisan api:contract:generate
 ```
 
 This command will:
+- Scan all your application routes
+- Extract route information (methods, paths, parameters)
+- Analyze controller methods and FormRequest classes
+- Generate authentication requirements
+- Create a JSON file at `storage/api-contracts/api.json`
 
--   Scan all your application routes
--   Extract route information (methods, paths, parameters)
--   Analyze controller methods and FormRequest classes
--   Generate authentication requirements
--   Create a JSON file at `storage/api-contracts/api.json`
+**Options:**
+- `--incremental`: Only update routes that have been modified
+- `--log`: Enable detailed logging
+- `--dry-run`: Validate without writing file
+- `--validate-schemas`: Validate generated schemas against JSON Schema
 
-### Available MCP Tools
+### Export to OpenAPI
 
-Once installed, the package provides these MCP tools. You must register them manually in your Laravel MCP server configuration:
+```bash
+php artisan api:export-openapi
+```
 
-#### 1. `list-api-routes`
+### Clear Cache
+
+```bash
+php artisan mcp-tools:clear-cache
+```
+
+### Health Check
+
+```bash
+php artisan mcp-tools:health-check
+```
+
+### View Metrics
+
+```bash
+php artisan mcp-tools:metrics
+```
+
+### Manage Contract Versions
+
+```bash
+php artisan api:contract:versions
+```
+
+### View Logs
+
+```bash
+php artisan mcp-tools:logs
+```
+
+## MCP Tools
+
+The package provides MCP tools that must be manually registered in your Laravel MCP server configuration.
+
+> [!IMPORTANT]
+> **Verify registration** by checking your MCP server's available tools list.
+
+### 1. `list-api-routes`
 
 Lists all API routes with optional filtering.
 
 **Arguments:**
-
--   `method` (optional): Filter by HTTP method (GET, POST, PUT, DELETE, PATCH)
--   `version` (optional): Filter by API version (v1, v2, etc.)
--   `search` (optional): Search term to filter routes by path
--   `limit` (optional): Maximum number of results (default: 50, max: 200)
+- `method` (optional): Filter by HTTP method (GET, POST, PUT, DELETE, PATCH)
+- `version` (optional): Filter by API version (v1, v2, etc.)
+- `search` (optional): Search term to filter routes by path
+- `limit` (optional): Maximum number of results (default: 50, max: 200)
+- `page` (optional): Page number for pagination (default: 1)
 
 **Example:**
-
 ```json
 {
     "method": "GET",
     "version": "v1",
     "search": "users",
-    "limit": 10
+    "limit": 10,
+    "page": 1
 }
 ```
 
-#### 2. `describe-api-route`
+### 2. `describe-api-route`
 
 Get detailed information about a specific endpoint.
 
 **Arguments:**
-
--   `path` (required): The API route path (e.g., `/api/v1/users/{user}`)
--   `method` (optional): HTTP method (defaults to GET)
+- `path` (required): The API route path (e.g., `/api/v1/users/{user}`)
+- `method` (optional): HTTP method (defaults to GET)
 
 **Example:**
-
 ```json
 {
     "path": "/api/v1/users/{user}",
@@ -102,31 +145,38 @@ Get detailed information about a specific endpoint.
 ```
 
 **Response includes:**
-
--   Route description
--   API version
--   Authentication requirements
--   Path parameters with types
--   Request/response schemas (if available)
+- Route description
+- API version
+- Authentication requirements
+- Path parameters with types
+- Request/response schemas (if available)
+- Rate limiting information
+- HTTP status codes
+- Content negotiation
 
 ### Registering MCP Tools
 
 The MCP tools provided by this package must be manually registered in your Laravel MCP server configuration.
 
-> [!IMPORTANT]
-> **Verify registration** by checking your MCP server's available tools list.
-
 #### Troubleshooting
 
 If you encounter issues registering the tools:
-
 - **Tools not appearing**: Ensure the MCP server configuration file is being loaded correctly
 - **Class not found errors**: Run `composer dump-autoload` to refresh the autoloader
 - **Service provider not registered**: Check that `Abr4xas\McpTools\McpToolsServiceProvider` is in your `config/app.php` providers array (should be auto-discovered)
 
+## Configuration
 
-> [!IMPORTANT]
-> The service provider is automatically registered by Laravel, but the MCP tools themselves require manual registration in your MCP server configuration.
+The package automatically detects and includes in contracts:
+- Route parameters and types
+- Authentication requirements (derived from middleware analysis)
+- Rate limiting information
+- Request validation rules (from FormRequests)
+- Response schemas (from Resources)
+- HTTP status codes
+- Custom headers
+- Content negotiation
+- API versioning
 
 ## API Contract Structure
 
@@ -137,46 +187,109 @@ The generated contract at `storage/api-contracts/api.json` follows this structur
     "/api/v1/users": {
         "GET": {
             "description": "List all users",
-            "api_version": "v1",
-            "auth": {
-                "type": "bearer"
+            "deprecated": null,
+            "auth": { "type": "bearer" },
+            "path_parameters": {},
+            "request_schema": {
+                "location": "query",
+                "properties": {}
             },
-            "path_parameters": {}
+            "response_schema": {
+                "type": "array",
+                "items": {}
+            },
+            "response_headers": [],
+            "custom_headers": [],
+            "rate_limit": null,
+            "api_version": "v1",
+            "status_codes": {
+                "200": "OK",
+                "401": "Unauthorized"
+            },
+            "content_negotiation": []
         },
         "POST": {
             "description": "Create a new user",
-            "api_version": "v1",
-            "auth": {
-                "type": "bearer"
+            "deprecated": null,
+            "auth": { "type": "bearer" },
+            "path_parameters": {},
+            "request_schema": {
+                "location": "body",
+                "properties": {
+                    "name": { "type": "string", "required": true },
+                    "email": { "type": "string", "format": "email", "required": true }
+                }
             },
-            "request_schema": {...},
-            "response_schema": {...}
+            "response_schema": { "type": "object", "properties": {} },
+            "response_headers": [],
+            "custom_headers": [],
+            "rate_limit": null,
+            "api_version": "v1",
+            "status_codes": {
+                "201": "Created",
+                "422": "Unprocessable Entity"
+            },
+            "content_negotiation": []
         }
     },
     "/api/v1/users/{user}": {
         "GET": {
             "description": "Get user details",
-            "api_version": "v1",
-            "auth": {
-                "type": "bearer"
-            },
+            "deprecated": null,
+            "auth": { "type": "bearer" },
             "path_parameters": {
-                "user": {
-                    "type": "integer"
-                }
-            }
+                "user": { "type": "integer", "required": true }
+            },
+            "request_schema": { "location": "query", "properties": {} },
+            "response_schema": { "type": "object", "properties": {} },
+            "response_headers": [],
+            "custom_headers": [],
+            "rate_limit": null,
+            "api_version": "v1",
+            "status_codes": {
+                "200": "OK",
+                "404": "Not Found"
+            },
+            "content_negotiation": []
         }
     }
 }
 ```
 
-## Requirements
+## Extending
 
--   PHP 8.4+
--   Laravel 12.x
--   [Laravel MCP](https://github.com/laravel/mcp) ^0.4.2
+### Custom Schema Transformers
+
+Create a transformer implementing `SchemaTransformerInterface`:
+
+```php
+use Abr4xas\McpTools\Interfaces\SchemaTransformerInterface;
+
+class CustomTransformer implements SchemaTransformerInterface
+{
+    public function transform(array $schema): array
+    {
+        // Transform schema
+        return $schema;
+    }
+
+    public function getPriority(): int
+    {
+        return 100;
+    }
+}
+```
+
+Register it in your service provider:
+
+```php
+$this->app->make(SchemaTransformerRegistry::class)
+    ->register(new CustomTransformer());
+```
 
 ## Testing
+
+Run the test suite:
 
 ```bash
 composer test
@@ -202,8 +315,8 @@ Please review [our security policy](../../security/policy) on how to report secu
 
 ## Credits
 
--   [Angel](https://github.com/abr4xas)
--   [All Contributors](../../contributors)
+- [Angel](https://github.com/abr4xas)
+- [All Contributors](../../contributors)
 
 ## License
 

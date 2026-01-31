@@ -1,0 +1,141 @@
+# MCP Tools - Laravel Package
+
+## Project Overview
+
+MCP Tools is a Laravel package that provides Model Context Protocol (MCP) tools for generating and managing API contracts. It automatically scans Laravel routes and generates comprehensive JSON contracts describing all API endpoints, including request/response schemas, authentication requirements, rate limits, and metadata.
+
+## Key Features
+
+- Automatic API contract generation from Laravel routes
+- MCP tools integration for querying API contracts
+- Deep analysis of routes, FormRequests, Resources, and middleware
+- OpenAPI/Swagger export support
+- Intelligent caching with file modification time validation
+- JSON Schema validation for generated contracts
+- Support for incremental contract updates
+- Contract versioning and comparison
+
+## Project Structure
+
+```
+src/
+├── Analyzers/          # Code analysis components
+│   ├── RouteAnalyzer.php           # Extracts route information (params, auth, rate limits)
+│   ├── FormRequestAnalyzer.php    # Parses validation rules and generates request schemas
+│   ├── ResourceAnalyzer.php       # Analyzes API Resources and generates response schemas
+│   ├── PhpDocAnalyzer.php         # Extracts PHPDoc comments for descriptions
+│   ├── MiddlewareAnalyzer.php     # Analyzes middleware applied to routes
+│   ├── ResponseCodeAnalyzer.php   # Detects possible HTTP status codes
+│   └── ExampleGenerator.php       # Generates example data from schemas
+├── Commands/          # Artisan commands
+│   ├── GenerateApiContractCommand.php  # Main command for generating API contracts
+│   ├── ClearCacheCommand.php           # Clears analysis cache
+│   ├── ExportOpenApiCommand.php        # Exports contracts to OpenAPI format
+│   ├── ContractVersionCommand.php     # Manages contract versions
+│   ├── HealthCheckCommand.php          # Performs health checks
+│   ├── MetricsCommand.php              # Displays contract metrics
+│   └── ViewLogsCommand.php             # Views recent logs
+├── Tools/             # MCP Tools for external integration
+│   ├── ListApiRoutes.php          # Lists and filters API routes
+│   ├── DescribeApiRoute.php       # Describes a single API route
+│   ├── ValidateApiContract.php    # Validates contract is up to date
+│   └── CompareApiContracts.php   # Compares two contract versions
+├── Services/          # Shared services
+│   ├── AnalysisCacheService.php   # Caches analysis results
+│   ├── AstCacheService.php        # Caches AST parsing results
+│   ├── JsonSchemaValidator.php    # Validates schemas against JSON Schema
+│   └── SchemaTransformerRegistry.php  # Manages custom schema transformers
+├── Exceptions/        # Custom exceptions
+│   ├── AnalysisException.php
+│   ├── RouteAnalysisException.php
+│   ├── FormRequestAnalysisException.php
+│   └── ResourceAnalysisException.php
+└── Interfaces/
+    └── SchemaTransformerInterface.php
+```
+
+## Core Workflow
+
+1. **Route Discovery**: Scans all registered Laravel routes
+2. **Route Analysis**: For each route:
+   - Extracts path parameters using RouteAnalyzer
+   - Determines authentication requirements using RouteAnalyzer
+   - Analyzes request schemas from FormRequest classes
+   - Analyzes response schemas from Resource classes
+   - Extracts metadata (rate limits, custom headers, API version)
+3. **Contract Generation**: Compiles all information into a JSON structure
+4. **File Output**: Writes contract to `storage/api-contracts/api.json`
+5. **MCP Tools**: Provide querying capabilities via MCP protocol
+
+## MCP Tools
+
+The package provides four MCP tools:
+
+1. **list-api-routes**: Lists all API routes with filtering, pagination, sorting, and grouping
+2. **describe-api-route**: Provides detailed information about a specific API route
+3. **validate-api-contract**: Validates that the API contract is up to date with current routes
+4. **compare-api-contracts**: Compares two versions of API contracts and detects changes
+
+## Key Technologies
+
+- **PHP 8.4+**: Required PHP version
+- **Laravel 11+ or 12+**: Framework version
+- **Laravel MCP ^0.5.1**: For MCP tool integration
+- **PestPHP**: Testing framework (not PHPUnit)
+- **PHPStan Level 8**: Static analysis
+- **Laravel Pint**: Code formatting
+
+## Testing
+
+- All tests use PestPHP syntax (`it()`, `expect()`, `beforeEach()`)
+- Tests are located in `tests/` directory
+- Run tests with: `composer test` or `vendor/bin/pest`
+- Coverage: `composer test-coverage` or `vendor/bin/pest --coverage`
+
+## Code Quality
+
+- PHPStan level 8 static analysis (configured in `phpstan.neon.dist`)
+- Laravel Pint for code formatting
+- All PHPStan errors have been resolved
+- Type hints are required for all methods and properties
+
+## Important Notes
+
+- MCP tools extend `Laravel\Mcp\Server\Tool` (not a custom base class)
+- Tools use properties `$name` and `$description` (not methods)
+- Tools implement `handle(Request $request): Response` method
+- Tools implement `schema(JsonSchema $schema): array` method for schema definition
+- Tools must be manually registered in your Laravel MCP server configuration
+- Contract files are stored at `storage/api-contracts/api.json`
+- All analyzers support caching with file modification time validation
+- The package uses static analysis (no runtime code execution)
+
+## Extension Points
+
+- **Schema Transformers**: Implement `SchemaTransformerInterface` to modify schemas
+- **Custom Analyzers**: Create custom analyzers to extract additional information
+- **Custom MCP Tools**: Extend `Laravel\Mcp\Server\Tool` to create new tools
+
+## Documentation
+
+- Architecture: `docs/ARCHITECTURE.md`
+- Extending: `docs/EXTENDING.md`
+- README: `README.md`
+
+## Commands
+
+- `php artisan api:contract:generate` - Generate API contract
+- `php artisan api:export-openapi` - Export to OpenAPI format
+- `php artisan api:contract:versions` - Manage contract versions
+- `php artisan mcp-tools:health-check` - Health check
+- `php artisan mcp-tools:metrics` - Show metrics
+- `php artisan mcp-tools:clear-cache` - Clear cache
+- `php artisan mcp-tools:logs` - View logs
+
+## Development Guidelines
+
+- Always use PestPHP for tests (not PHPUnit)
+- Add type hints for all methods and properties
+- Run PHPStan before committing: `vendor/bin/phpstan analyse`
+- Follow Laravel coding standards
+- All code must pass PHPStan level 8 analysis
