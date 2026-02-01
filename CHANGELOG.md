@@ -2,6 +2,15 @@
 
 All notable changes to `mcp-tools` will be documented in this file.
 
+## v2.0.0 - 2026-02-01
+
+### What's Changed
+
+* ⬆️ Bump dependabot/fetch-metadata from 2.4.0 to 2.5.0 by @dependabot[bot] in https://github.com/abr4xas/mcp-tools/pull/4
+* Fix all PHPStan errors and improve type safety by @abr4xas in https://github.com/abr4xas/mcp-tools/pull/5
+
+**Full Changelog**: https://github.com/abr4xas/mcp-tools/compare/v1.0.0...v2.0.0
+
 ## v1.0.0 - 2025-12-23
 
 ### What's Changed
